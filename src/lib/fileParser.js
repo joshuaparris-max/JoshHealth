@@ -219,23 +219,65 @@ async function parseZIP(file, log) {
 }
 
 async function parseSQLite(file, log) {
+  // ── Step 1: Read file into memory (main thread — has progress events) ──────
+  log('Step 1/4 — Reading file into browser memory...', 'info', 0)
+  let arrayBuffer
   try {
-    // ── Step 1: Read file into memory ──────────────────────────────────────
-    log('Step 1/4 — Reading file into browser memory...', 'info', 0)
     const startRead = Date.now()
-    const arrayBuffer = await readArrayBufferWithProgress(file, (p) => {
+    arrayBuffer = await readArrayBufferWithProgress(file, (p) => {
       const mb = ((file.size * p / 100) / 1024 / 1024).toFixed(1)
       log(`Step 1/4 — Reading file: ${p}% (${mb} MB of ${formatFileSize(file.size)})`, 'info', p * 0.25)
     })
     const readMs = Date.now() - startRead
     log(`Step 1/4 — File read complete in ${(readMs / 1000).toFixed(1)}s`, 'info', 25)
+  } catch (err) {
+    log(`Step 1/4 — Failed to read file: ${err.message}`, 'error', 100)
+    return `[SQLite read error for ${file.name}: ${err.message}]`
+  }
 
-    // ── Step 2: Load sql.js + WASM ─────────────────────────────────────────
+  // ── Steps 2–4: Hand off to Web Worker so UI stays responsive ──────────────
+  return new Promise((resolve) => {
+    let worker
+    try {
+      worker = new Worker('/sqlite-worker.js')
+    } catch (err) {
+      // Worker creation failed (e.g. COEP header not set in prod) — fall through
+      log(`Worker unavailable: ${err.message}. Falling back to main thread...`, 'warn', 26)
+      resolve(parseSQLiteFallback(file, arrayBuffer, log))
+      return
+    }
+
+    worker.onmessage = (e) => {
+      const msg = e.data
+      if (msg.type === 'progress') {
+        log(msg.msg, msg.status, msg.pct)
+      } else if (msg.type === 'done') {
+        worker.terminate()
+        resolve(msg.content)
+      } else if (msg.type === 'error') {
+        worker.terminate()
+        log(`SQLite parse failed: ${msg.message}`, 'error', 100)
+        resolve(`[SQLite parse error for ${file.name}: ${msg.message}]`)
+      }
+    }
+
+    worker.onerror = (err) => {
+      worker.terminate()
+      log(`Worker crashed: ${err.message}`, 'error', 100)
+      resolve(`[SQLite worker error for ${file.name}: ${err.message}]`)
+    }
+
+    // Transfer the buffer to the worker (zero-copy)
+    worker.postMessage({ buffer: arrayBuffer, fileName: file.name, fileSize: file.size }, [arrayBuffer])
+  })
+}
+
+// Fallback: run sql.js on main thread if Worker isn't available
+async function parseSQLiteFallback(file, arrayBuffer, log) {
+  try {
     log('Step 2/4 — Loading sql.js library...', 'info', 26)
     const SQL = (await import('sql.js')).default
-    log('Step 2/4 — sql.js imported, fetching WASM binary...', 'info', 30)
 
-    // WASM fetch has no progress events — simulate with a timer
     let wasmPct = 30
     const wasmTimer = setInterval(() => {
       if (wasmPct < 44) {
@@ -245,81 +287,53 @@ async function parseSQLite(file, log) {
       }
     }, 200)
 
-    const startWasm = Date.now()
-    const sql = await SQL({
-      locateFile: () => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.wasm`
-    })
+    const sql = await SQL({ locateFile: () => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.wasm` })
     clearInterval(wasmTimer)
-    const wasmMs = Date.now() - startWasm
-    log(`Step 2/4 — WASM loaded in ${(wasmMs / 1000).toFixed(1)}s`, 'info', 45)
+    log('Step 2/4 — WASM loaded', 'info', 45)
 
-    // ── Step 3: Open database ──────────────────────────────────────────────
     log('Step 3/4 — Opening SQLite database...', 'info', 46)
-    log(`Step 3/4 — Parsing ${formatFileSize(file.size)} database file...`, 'info', 47)
-
-    // Database open also has no progress — simulate based on file size
-    const expectedOpenMs = Math.max(2000, file.size / (1024 * 1024) * 800) // ~800ms per MB
-    let openPct = 47
-    const openTimer = setInterval(() => {
-      if (openPct < 64) {
-        openPct += 1
-        log(`Step 3/4 — Opening database... (${Math.round((openPct - 47) / 17 * 100)}% estimated)`, 'info', openPct)
-      }
-    }, expectedOpenMs / 17)
-
-    const startOpen = Date.now()
     const db = new sql.Database(new Uint8Array(arrayBuffer))
-    clearInterval(openTimer)
-    const openMs = Date.now() - startOpen
-    log(`Step 3/4 — Database opened in ${(openMs / 1000).toFixed(1)}s`, 'info', 65)
+    log('Step 3/4 — Database opened', 'info', 65)
 
-    // ── Step 4: Read tables ────────────────────────────────────────────────
-    log("Step 4/4 — Querying table list...", 'info', 66)
+    log('Step 4/4 — Querying table list...', 'info', 66)
     const tablesResult = db.exec("SELECT name FROM sqlite_master WHERE type='table'")
     if (!tablesResult.length) {
-      log('No tables found in database', 'warn', 100)
       db.close()
       return `SQLite DB: ${file.name}\nNo tables found.`
     }
 
     const tables = tablesResult[0].values.map(r => r[0])
     const toRead = tables.slice(0, 20)
-    log(`Step 4/4 — Found ${tables.length} tables: ${toRead.slice(0, 6).join(', ')}${tables.length > 6 ? ` +${tables.length - 6} more` : ''}`, 'info', 68)
+    log(`Step 4/4 — Found ${tables.length} tables: ${toRead.slice(0, 6).join(', ')}`, 'info', 68)
 
     let output = `SQLITE DB: ${file.name}\nTables (${tables.length}): ${tables.join(', ')}\n\n`
-
     for (let i = 0; i < toRead.length; i++) {
       const table = toRead[i]
       const pct = 68 + Math.round((i / toRead.length) * 28)
-      log(`Step 4/4 — [${i + 1}/${toRead.length}] Reading table: ${table}`, 'info', pct)
-
+      log(`Step 4/4 — [${i + 1}/${toRead.length}] Reading: ${table}`, 'info', pct)
       try {
-        const countResult = db.exec(`SELECT COUNT(*) FROM "${table}"`)
-        const count = countResult[0]?.values[0][0] ?? 0
+        const cr = db.exec(`SELECT COUNT(*) FROM "${table}"`)
+        const count = cr[0]?.values[0][0] ?? 0
         output += `TABLE: ${table} — ${count.toLocaleString()} rows\n`
-
         if (count > 0) {
-          const sampleResult = db.exec(`SELECT * FROM "${table}" LIMIT 5`)
-          if (sampleResult.length) {
-            const cols = sampleResult[0].columns
-            const rows = sampleResult[0].values
+          const sr = db.exec(`SELECT * FROM "${table}" LIMIT 5`)
+          if (sr.length) {
+            const cols = sr[0].columns
             output += `Columns: ${cols.join(', ')}\n`
-            output += `Sample rows:\n`
-            rows.forEach(row => {
+            sr[0].values.forEach(row => {
               output += `  ${row.map((v, i) => `${cols[i]}=${v}`).join(' | ')}\n`
             })
           }
         }
         output += '\n'
       } catch (e) {
-        log(`Table ${table} error: ${e.message}`, 'warn', pct)
         output += `TABLE: ${table} — [error: ${e.message}]\n\n`
       }
     }
-
     db.close()
-    log(`Done — ${toRead.length} tables read, ${output.length.toLocaleString()} chars extracted`, 'success', 100)
-    return truncate(output, 15000)
+    const result = truncate(output, 15000)
+    log(`Done — ${toRead.length} tables read, ${result.length.toLocaleString()} chars extracted`, 'success', 100)
+    return result
   } catch (err) {
     log(`SQLite parse failed: ${err.message}`, 'error', 100)
     return `[SQLite parse error for ${file.name}: ${err.message}]`
