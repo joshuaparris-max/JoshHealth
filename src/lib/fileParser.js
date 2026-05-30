@@ -1,4 +1,4 @@
-// File parsing utilities for health data
+import { SOURCE_PRIORITY } from './schema.js'
 
 export async function parseFile(file, onProgress) {
   const ext = file.name.split('.').pop().toLowerCase()
@@ -46,6 +46,15 @@ export async function parseFile(file, onProgress) {
     } else if (ext === 'zip') {
       result.content = await parseZIP(file, log)
       result.summary = truncate(result.content, 12000)
+
+      // Handle specific ZIP types (Phase 3)
+      if (file.name.toLowerCase().includes('withings')) {
+        log('Detected Withings ZIP export', 'info', 31)
+        // Withings logic would go here
+      } else if (file.name.toLowerCase().includes('sleep-export')) {
+        log('Detected Sleep as Android ZIP export', 'info', 31)
+        // Sleep as Android logic would go here
+      }
 
     } else if (ext === 'db') {
       result.content = await parseSQLite(file, log)
