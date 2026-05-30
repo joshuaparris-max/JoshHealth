@@ -1,4 +1,4 @@
-export default function Header({ onReset }) {
+export default function Header({ onReset, connection, onDisconnect }) {
   return (
     <header className="sticky top-0 z-50 bg-ink/90 backdrop-blur-md border-b border-slate-border">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -14,15 +14,20 @@ export default function Header({ onReset }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <a
-            href="https://console.anthropic.com/settings/keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-slate-ui hover:text-jade transition-colors hidden sm:block"
+          {connection && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-ui bg-ink border border-slate-border rounded-full px-3 py-1 font-mono">
+            {connection.provider}
+          </span>
+          <button
+            onClick={onDisconnect}
+            className="text-xs text-slate-ui hover:text-white transition-colors"
           >
-            Get API key →
-          </a>
-          {onReset && (
+            disconnect
+          </button>
+        </div>
+      )}
+      {onReset && (
             <button
               onClick={onReset}
               className="text-xs text-slate-ui hover:text-white border border-slate-border hover:border-jade/40 px-3 py-1.5 rounded-lg transition-all"

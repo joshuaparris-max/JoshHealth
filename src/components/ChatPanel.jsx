@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { runChat } from '../lib/claudeApi.js'
 
-export default function ChatPanel({ apiKey, history, onHistoryUpdate, dataContext }) {
+export default function ChatPanel({ apiKey, provider = 'anthropic', model, history, onHistoryUpdate, dataContext }) {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamingText, setStreamingText] = useState('')
@@ -36,6 +36,8 @@ export default function ChatPanel({ apiKey, history, onHistoryUpdate, dataContex
 
     await runChat({
       apiKey,
+      provider,
+      model,
       history,
       userMessage: message,
       dataContext,

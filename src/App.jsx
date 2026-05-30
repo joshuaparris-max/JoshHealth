@@ -3,30 +3,40 @@ import UploadZone from './components/UploadZone.jsx'
 import ModeSelector from './components/ModeSelector.jsx'
 import AnalysisView from './components/AnalysisView.jsx'
 import ChatPanel from './components/ChatPanel.jsx'
-import ApiKeyInput from './components/ApiKeyInput.jsx'
+import ProviderSelector from './components/ProviderSelector.jsx'
 import Header from './components/Header.jsx'
 import { parseFile } from './lib/fileParser.js'
 import { runAnalysis } from './lib/claudeApi.js'
 
 const STAGES = { SETUP: 'setup', UPLOAD: 'upload', ANALYSE: 'analyse', RESULT: 'result' }
 
+// Restore connection from localStorage if available
+function restoreConnection() {
+  for (const id of ['groq', 'openrouter', 'anthropic']) {
+    const key = localStorage.getItem(`jha_key_${id}`)
+    const model = localStorage.getItem(`jha_model_${id}`)
+    if (key) return { provider: id, apiKey: key, model: model || '' }
+  }
+  return null
+}
+
 export default function App() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('jha_api_key') || '')
+  const [connection, setConnection] = useState(() => restoreConnection())
   const [files, setFiles] = useState([])
   const [parsedFiles, setParsedFiles] = useState([])
   const [parsing, setParsing] = useState(false)
   const [selectedModes, setSelectedModes] = useState(['quickSummary', 'deepPattern'])
-  const [stage, setStage] = useState(STAGES.SETUP)
+  const [stage, setStage] = useState(connection ? STAGES.UPLOAD : STAGES.SETUP)
   const [analysisResult, setAnalysisResult] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState('')
   const [chatHistory, setChatHistory] = useState([])
   const [showChat, setShowChat] = useState(false)
 
-  const handleApiKey = useCallback((key) => {
-    setApiKey(key)
-    localStorage.setItem('jha_api_key', key)
-    if (key) setStage(STAGES.UPLOAD)
+  const handleConnect = useCallback((conn) => {
+    setConnection(conn)
+    localStorage.setItem(`jha_model_${conn.provider}`, conn.model)
+    setStage(STAGES.UPLOAD)
   }, [])
 
   const handleFiles = useCallback(async (newFiles) => {
@@ -50,7 +60,7 @@ export default function App() {
   }, [])
 
   const handleAnalyse = useCallback(async () => {
-    if (!apiKey) { setError('Please enter your Claude API key first.'); return }
+    if (!connection) { setError('Please connect an AI provider first.'); return }
     if (!parsedFiles.length) { setError('Please upload at least one file.'); return }
     if (!selectedModes.length) { setError('Select at least one analysis mode.'); return }
 
@@ -62,7 +72,9 @@ export default function App() {
     setShowChat(false)
 
     await runAnalysis({
-      apiKey,
+      apiKey: connection.apiKey,
+      provider: connection.provider,
+      model: connection.model,
       parsedFiles,
       selectedModes,
       onChunk: (text) => setAnalysisResult(text),
@@ -77,7 +89,7 @@ export default function App() {
         setStage(STAGES.ANALYSE)
       }
     })
-  }, [apiKey, parsedFiles, selectedModes])
+  }, [connection, parsedFiles, selectedModes])
 
   const handleReset = useCallback(() => {
     setFiles([])
@@ -86,17 +98,29 @@ export default function App() {
     setChatHistory([])
     setShowChat(false)
     setError('')
-    setStage(apiKey ? STAGES.UPLOAD : STAGES.SETUP)
-  }, [apiKey])
+    setStage(connection ? STAGES.UPLOAD : STAGES.SETUP)
+  }, [connection])
+
+  const handleDisconnect = useCallback(() => {
+    setConnection(null)
+    setStage(STAGES.SETUP)
+    setFiles([])
+    setParsedFiles([])
+    setAnalysisResult('')
+  }, [])
 
   const dataContext = parsedFiles.map(f => f.summary).join('\n\n---\n\n')
 
   return (
     <div className="min-h-screen bg-ink relative z-10">
-      <Header onReset={stage !== STAGES.SETUP && stage !== STAGES.UPLOAD ? handleReset : null} />
+      <Header
+        onReset={stage !== STAGES.SETUP && stage !== STAGES.UPLOAD ? handleReset : null}
+        connection={connection}
+        onDisconnect={handleDisconnect}
+      />
 
       <main className="max-w-5xl mx-auto px-4 pb-24">
-        {/* API Key setup */}
+        {/* Provider setup */}
         {stage === STAGES.SETUP && (
           <div className="animate-slide-up">
             <div className="text-center pt-16 pb-10">
@@ -113,11 +137,11 @@ export default function App() {
                 Get deep, honest AI analysis — for personal reflection only.
               </p>
             </div>
-            <ApiKeyInput onSubmit={handleApiKey} />
+            <ProviderSelector onSubmit={handleConnect} />
           </div>
         )}
 
-        {/* Upload + Mode select */}
+        {/* Upload + mode select */}
         {(stage === STAGES.UPLOAD || stage === STAGES.ANALYSE) && (
           <div className="animate-slide-up pt-8 space-y-6">
             <UploadZone
@@ -132,7 +156,7 @@ export default function App() {
                 selected={selectedModes}
                 onChange={setSelectedModes}
                 onAnalyse={handleAnalyse}
-                disabled={!parsedFiles.length || !apiKey}
+                disabled={!parsedFiles.length || !connection}
               />
             )}
             {error && (
@@ -158,10 +182,7 @@ export default function App() {
               </span>
             </div>
 
-            <AnalysisView
-              result={analysisResult}
-              streaming={streaming}
-            />
+            <AnalysisView result={analysisResult} streaming={streaming} />
 
             {error && (
               <div className="bg-crimson-glow border border-crimson-health/30 rounded-xl p-4 text-crimson-health text-sm">
@@ -171,7 +192,9 @@ export default function App() {
 
             {showChat && (
               <ChatPanel
-                apiKey={apiKey}
+                apiKey={connection.apiKey}
+                provider={connection.provider}
+                model={connection.model}
                 history={chatHistory}
                 onHistoryUpdate={setChatHistory}
                 dataContext={dataContext}

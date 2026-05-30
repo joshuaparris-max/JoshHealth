@@ -1,4 +1,10 @@
-// Claude API integration
+// Multi-provider AI integration: Anthropic, Groq, OpenRouter
+
+const ENDPOINTS = {
+  anthropic: 'https://api.anthropic.com/v1/messages',
+  groq: 'https://api.groq.com/openai/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+}
 
 const ANALYSIS_MODES = {
   quickSummary: {
@@ -50,7 +56,99 @@ const ANALYSIS_MODES = {
 
 export { ANALYSIS_MODES }
 
-export async function runAnalysis({ apiKey, parsedFiles, selectedModes, onChunk, onComplete, onError }) {
+// ─── Internal streaming helpers ───────────────────────────────────────────────
+
+async function streamResponse({ provider, model, apiKey, systemPrompt, messages, onChunk, onComplete, onError }) {
+  try {
+    let response
+
+    if (provider === 'anthropic') {
+      response = await fetch(ENDPOINTS.anthropic, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          stream: true,
+          system: systemPrompt,
+          messages,
+        }),
+      })
+    } else {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      }
+      if (provider === 'openrouter') {
+        headers['HTTP-Referer'] = window.location.origin
+        headers['X-Title'] = 'HealthLens'
+      }
+      response = await fetch(ENDPOINTS[provider], {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          stream: true,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        }),
+      })
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error?.message || `API error ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop()
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed === 'data: [DONE]') continue
+        if (!trimmed.startsWith('data: ')) continue
+        try {
+          const parsed = JSON.parse(trimmed.slice(6))
+          let chunk = ''
+          if (provider === 'anthropic') {
+            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+              chunk = parsed.delta.text
+            }
+          } else {
+            chunk = parsed.choices?.[0]?.delta?.content ?? ''
+          }
+          if (chunk) {
+            fullText += chunk
+            onChunk(fullText)
+          }
+        } catch {}
+      }
+    }
+
+    onComplete(fullText)
+  } catch (err) {
+    onError(err.message)
+  }
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', parsedFiles, selectedModes, onChunk, onComplete, onError }) {
   const dataBlock = parsedFiles
     .map(f => `\n\n=== FILE: ${f.name} (${f.type}, ${(f.size / 1024).toFixed(1)}KB) ===\n${f.summary}`)
     .join('\n')
@@ -75,66 +173,24 @@ IMPORTANT RULES:
 
   const userPrompt = `Please analyse the following health data. Perform these analysis types:\n\n${modeInstructions}\n\n---\n\nHEALTH DATA:\n${dataBlock}\n\n---\n\nBegin your analysis now. Use clear markdown formatting with ## headings for each analysis section.`
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-        stream: true,
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.error?.message || `API error ${response.status}`)
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let fullText = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      const chunk = decoder.decode(value)
-      const lines = chunk.split('\n')
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') continue
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-              fullText += parsed.delta.text
-              onChunk(fullText)
-            }
-          } catch {}
-        }
-      }
-    }
-
-    onComplete(fullText)
-  } catch (err) {
-    onError(err.message)
-  }
+  await streamResponse({
+    provider,
+    model,
+    apiKey,
+    systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+    onChunk,
+    onComplete,
+    onError,
+  })
 }
 
-export async function runChat({ apiKey, history, userMessage, dataContext, onChunk, onComplete, onError }) {
-  const systemPrompt = `You are a warm, honest health data analyst helping someone understand their personal health data. 
+export async function runChat({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', history, userMessage, dataContext, onChunk, onComplete, onError }) {
+  const systemPrompt = `You are a warm, honest health data analyst helping someone understand their personal health data.
 
 Key rules:
 - Use plain Australian English
-- Not medical advice — always suggest GP for clinical concerns  
+- Not medical advice — always suggest GP for clinical concerns
 - Be warm, practical, and direct
 - The user has already uploaded health data (context provided)
 - Answer follow-up questions clearly and concisely`
@@ -145,60 +201,23 @@ Key rules:
 
   const messages = [
     ...(history.length === 0 && dataContext
-      ? [{ role: 'user', content: contextMessage + 'I have uploaded health data. Please be ready to answer questions about it.' },
-         { role: 'assistant', content: 'Got it — I have your health data loaded and ready. What would you like to explore?' }]
+      ? [
+          { role: 'user', content: contextMessage + 'I have uploaded health data. Please be ready to answer questions about it.' },
+          { role: 'assistant', content: 'Got it — I have your health data loaded and ready. What would you like to explore?' }
+        ]
       : []),
     ...history,
     { role: 'user', content: userMessage }
   ]
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages,
-        stream: true,
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.error?.message || `API error ${response.status}`)
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let fullText = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value)
-      for (const line of chunk.split('\n')) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') continue
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-              fullText += parsed.delta.text
-              onChunk(fullText)
-            }
-          } catch {}
-        }
-      }
-    }
-
-    onComplete(fullText)
-  } catch (err) {
-    onError(err.message)
-  }
+  await streamResponse({
+    provider,
+    model,
+    apiKey,
+    systemPrompt,
+    messages,
+    onChunk,
+    onComplete,
+    onError,
+  })
 }
