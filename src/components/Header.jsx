@@ -15,19 +15,19 @@ export default function Header({ onReset, connection, onDisconnect }) {
 
         <div className="flex items-center gap-3">
           {connection && (
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-ui bg-ink border border-slate-border rounded-full px-3 py-1 font-mono">
-            {connection.provider}
-          </span>
-          <button
-            onClick={onDisconnect}
-            className="text-xs text-slate-ui hover:text-white transition-colors"
-          >
-            disconnect
-          </button>
-        </div>
-      )}
-      {onReset && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-ui bg-ink border border-slate-border rounded-full px-3 py-1 font-mono">
+                {connection.provider}
+              </span>
+              <button
+                onClick={onDisconnect}
+                className="text-xs text-slate-ui hover:text-white transition-colors"
+              >
+                disconnect
+              </button>
+            </div>
+          )}
+          {onReset && (
             <button
               onClick={onReset}
               className="text-xs text-slate-ui hover:text-white border border-slate-border hover:border-jade/40 px-3 py-1.5 rounded-lg transition-all"

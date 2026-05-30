@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { checkHealth } from '../lib/claudeApi.js'
 
 const PROVIDERS = [
   {
@@ -52,12 +53,15 @@ export default function ProviderSelector({ onSubmit }) {
   const [key, setKey] = useState('')
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
 
   const handleProviderChange = (p) => {
     setProvider(p)
     setModel(p.models[0].id)
     setKey(localStorage.getItem(`jha_key_${p.id}`) || '')
     setError('')
+    setTestResult(null)
   }
 
   const validate = (k) => {
@@ -66,6 +70,18 @@ export default function ProviderSelector({ onSubmit }) {
     if (provider.id === 'groq' && !k.startsWith('gsk_')) return 'Groq keys start with gsk_'
     if (provider.id === 'openrouter' && !k.startsWith('sk-or-')) return 'OpenRouter keys start with sk-or-'
     return ''
+  }
+
+  const handleTest = async () => {
+    const err = validate(key.trim())
+    if (err) { setError(err); return }
+    
+    setTesting(true)
+    setTestResult(null)
+    const res = await checkHealth({ provider: provider.id, model, apiKey: key.trim() })
+    setTesting(false)
+    setTestResult(res)
+    if (!res.ok) setError(res.message)
   }
 
   const handleSubmit = (e) => {
@@ -119,7 +135,7 @@ export default function ProviderSelector({ onSubmit }) {
             <label className="text-xs text-slate-ui font-medium uppercase tracking-wider">Model</label>
             <select
               value={model}
-              onChange={e => setModel(e.target.value)}
+              onChange={e => { setModel(e.target.value); setTestResult(null) }}
               className="w-full bg-ink border border-slate-border focus:border-jade/60 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors appearance-none"
             >
               {provider.models.map(m => (
@@ -135,7 +151,7 @@ export default function ProviderSelector({ onSubmit }) {
               <input
                 type={show ? 'text' : 'password'}
                 value={key}
-                onChange={e => { setKey(e.target.value); setError('') }}
+                onChange={e => { setKey(e.target.value); setError(''); setTestResult(null) }}
                 placeholder={provider.placeholder}
                 className="w-full bg-ink border border-slate-border focus:border-jade/60 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none transition-colors pr-12 placeholder:text-slate-border"
                 autoComplete="off"
@@ -149,15 +165,26 @@ export default function ProviderSelector({ onSubmit }) {
               </button>
             </div>
             {error && <p className="text-xs text-crimson-health">{error}</p>}
+            {testResult?.ok && <p className="text-xs text-jade">✓ Connection successful!</p>}
           </div>
 
-          <button
-            type="submit"
-            disabled={!key.trim()}
-            className="w-full bg-jade hover:bg-jade-dark disabled:opacity-40 disabled:cursor-not-allowed text-ink-DEFAULT font-display font-semibold py-3 rounded-xl transition-colors text-sm"
-          >
-            Continue →
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={!key.trim() || testing}
+              className="flex-1 bg-ink border border-slate-border hover:border-slate-ui text-white font-medium py-3 rounded-xl transition-colors text-sm disabled:opacity-40"
+            >
+              {testing ? 'Testing...' : 'Test Connection'}
+            </button>
+            <button
+              type="submit"
+              disabled={!key.trim() || testing}
+              className="flex-[2] bg-jade hover:bg-jade-dark disabled:opacity-40 disabled:cursor-not-allowed text-ink-DEFAULT font-display font-semibold py-3 rounded-xl transition-colors text-sm"
+            >
+              Continue →
+            </button>
+          </div>
         </form>
 
         <div className="grid grid-cols-3 gap-3 pt-2">

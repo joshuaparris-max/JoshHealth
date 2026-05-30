@@ -4,8 +4,8 @@ export async function parseFile(file, onProgress) {
   const ext = file.name.split('.').pop().toLowerCase()
   const result = { name: file.name, type: ext, size: file.size, content: '', summary: '' }
 
-  const log = (msg, status = 'info', pct = null) =>
-    onProgress?.({ file: file.name, msg, status, pct })
+  const log = (msg, status = 'info', pct = null, id = null) =>
+    onProgress?.({ file: file.name, msg, status, pct, id })
 
   log(`Detected ${ext.toUpperCase()} · ${formatFileSize(file.size)}`, 'info', 0)
 
@@ -250,7 +250,7 @@ async function parseSQLite(file, log) {
     worker.onmessage = (e) => {
       const msg = e.data
       if (msg.type === 'progress') {
-        log(msg.msg, msg.status, msg.pct)
+        log(msg.msg, msg.status, msg.pct, msg.id)
       } else if (msg.type === 'done') {
         worker.terminate()
         resolve(msg.content)

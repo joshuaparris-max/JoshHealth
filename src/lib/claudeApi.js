@@ -101,8 +101,9 @@ async function streamResponse({ provider, model, apiKey, systemPrompt, messages,
     }
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.error?.message || `API error ${response.status}`)
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.error?.message || errorData.message || `API error ${response.status}: ${response.statusText}`
+      throw new Error(`${provider} error: ${errorMessage}`)
     }
 
     const reader = response.body.getReader()
@@ -147,6 +148,54 @@ async function streamResponse({ provider, model, apiKey, systemPrompt, messages,
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+
+export async function checkHealth({ provider, model, apiKey }) {
+  try {
+    const systemPrompt = "Health check. Respond with 'OK'."
+    const messages = [{ role: 'user', content: 'Are you there?' }]
+    
+    let response
+    if (provider === 'anthropic') {
+      response = await fetch(ENDPOINTS.anthropic, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 10,
+          messages,
+          system: systemPrompt,
+        }),
+      })
+    } else {
+      response = await fetch(ENDPOINTS[provider], {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 10,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        }),
+      })
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.error?.message || errorData.message || `API error ${response.status}`
+      return { ok: false, message: errorMessage }
+    }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, message: err.message }
+  }
+}
 
 export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', parsedFiles, selectedModes, onChunk, onComplete, onError }) {
   const dataBlock = parsedFiles

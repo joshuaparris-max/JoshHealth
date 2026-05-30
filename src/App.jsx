@@ -48,7 +48,17 @@ export default function App() {
     const parsed = []
     for (const f of newFiles) {
       const result = await parseFile(f, (entry) => {
-        setParseLog(prev => [...prev, entry])
+        setParseLog(prev => {
+          if (entry.id) {
+            const idx = prev.findIndex(e => e.id === entry.id && e.file === entry.file)
+            if (idx !== -1) {
+              const next = [...prev]
+              next[idx] = entry
+              return next
+            }
+          }
+          return [...prev, entry]
+        })
       })
       parsed.push(result)
     }

@@ -15,8 +15,8 @@ function truncate(text, maxChars) {
   return text.slice(0, maxChars) + '\n\n[...truncated — ' + (text.length - maxChars) + ' chars omitted...]'
 }
 
-function log(msg, status, pct) {
-  self.postMessage({ type: 'progress', msg: msg, status: status || 'info', pct: pct != null ? pct : null })
+function log(msg, status, pct, id) {
+  self.postMessage({ type: 'progress', msg: msg, status: status || 'info', pct: pct != null ? pct : null, id: id })
 }
 
 self.onmessage = async function(e) {
@@ -25,14 +25,14 @@ self.onmessage = async function(e) {
   var fileSize = e.data.fileSize
 
   try {
-    log('Step 2/4 — Loading sql.js library...', 'info', 26)
+    log('Step 2/4 — Loading sql.js library...', 'info', 26, 'wasm-load')
 
     var wasmPct = 26
     var wasmTimer = setInterval(function() {
       if (wasmPct < 43) {
         wasmPct += 1
         var kb = Math.round((wasmPct - 26) / 17 * 2800)
-        log('Step 2/4 — Fetching WASM binary... (~' + kb + ' KB of ~2800 KB)', 'info', wasmPct)
+        log('Step 2/4 — Fetching WASM binary... (~' + kb + ' KB of ~2800 KB)', 'info', wasmPct, 'wasm-load')
       }
     }, 180)
 
@@ -47,8 +47,8 @@ self.onmessage = async function(e) {
     var wasmMs = Date.now() - startWasm
     log('Step 2/4 — WASM loaded in ' + (wasmMs / 1000).toFixed(1) + 's', 'info', 45)
 
-    log('Step 3/4 — Opening SQLite database...', 'info', 46)
-    log('Step 3/4 — Parsing ' + formatFileSize(fileSize) + ' database file... (this may take a while)', 'info', 47)
+    log('Step 3/4 — Opening SQLite database...', 'info', 46, 'db-open')
+    log('Step 3/4 — Parsing ' + formatFileSize(fileSize) + ' database file... (this may take a while)', 'info', 47, 'db-open')
 
     var expectedOpenMs = Math.max(3000, fileSize / (1024 * 1024) * 900)
     var openPct = 47
@@ -56,7 +56,7 @@ self.onmessage = async function(e) {
       if (openPct < 64) {
         openPct += 1
         var estPct = Math.round((openPct - 47) / 17 * 100)
-        log('Step 3/4 — Opening database... (~' + estPct + '% estimated)', 'info', openPct)
+        log('Step 3/4 — Opening database... (~' + estPct + '% estimated)', 'info', openPct, 'db-open')
       }
     }, expectedOpenMs / 17)
 
@@ -64,7 +64,7 @@ self.onmessage = async function(e) {
     var db = new sql.Database(new Uint8Array(buffer))
     clearInterval(openTimer)
     var openMs = Date.now() - startOpen
-    log('Step 3/4 — Database opened in ' + (openMs / 1000).toFixed(1) + 's', 'info', 65)
+    log('Step 3/4 — Database opened in ' + (openMs / 1000).toFixed(1) + 's', 'info', 65, 'db-open')
 
     log('Step 4/4 — Querying table list...', 'info', 66)
     var tablesResult = db.exec("SELECT name FROM sqlite_master WHERE type='table'")
@@ -94,14 +94,54 @@ self.onmessage = async function(e) {
         output += 'TABLE: ' + table + ' — ' + count.toLocaleString() + ' rows\n'
 
         if (count > 0) {
-          var sampleResult = db.exec('SELECT * FROM "' + table + '" LIMIT 5')
+          // Get schema to find dates and numbers
+          var infoResult = db.exec('PRAGMA table_info("' + table + '")')
+          var cols = infoResult[0].values.map(function(c) { return { name: c[1], type: c[2].toUpperCase() } })
+          
+          var dateCols = cols.filter(function(c) { 
+            var n = c.name.toLowerCase()
+            return n.indexOf('time') !== -1 || n.indexOf('date') !== -1 || n.indexOf('stamp') !== -1
+          })
+          
+          var numCols = cols.filter(function(c) {
+            var t = c.type
+            var n = c.name.toLowerCase()
+            return (t.indexOf('INT') !== -1 || t.indexOf('FLOAT') !== -1 || t.indexOf('REAL') !== -1 || t.indexOf('NUM') !== -1) 
+                   && n.indexOf('id') === -1 && n !== 'version'
+          })
+
+          // Build aggregate query
+          var aggs = []
+          dateCols.forEach(function(c) { 
+            aggs.push('MIN("' + c.name + '") as min_' + c.name)
+            aggs.push('MAX("' + c.name + '") as max_' + c.name)
+          })
+          numCols.slice(0, 5).forEach(function(c) { // Limit to 5 numeric aggs to keep query fast
+            aggs.push('AVG("' + c.name + '") as avg_' + c.name)
+          })
+
+          if (aggs.length > 0) {
+            try {
+              var aggResult = db.exec('SELECT ' + aggs.join(', ') + ' FROM "' + table + '"')
+              if (aggResult.length) {
+                output += 'Summary Stats:\n'
+                aggResult[0].columns.forEach(function(col, ci) {
+                  var val = aggResult[0].values[0][ci]
+                  output += '  ' + col + ': ' + (typeof val === 'number' ? val.toFixed(2) : val) + '\n'
+                })
+              }
+            } catch (aggErr) {
+              // Fallback if aggregation fails
+            }
+          }
+
+          // Still provide a small sample for context
+          var sampleResult = db.exec('SELECT * FROM "' + table + '" LIMIT 3')
           if (sampleResult.length) {
-            var cols = sampleResult[0].columns
-            var rows = sampleResult[0].values
-            output += 'Columns: ' + cols.join(', ') + '\n'
             output += 'Sample rows:\n'
-            rows.forEach(function(row) {
-              output += '  ' + row.map(function(v, ci) { return cols[ci] + '=' + v }).join(' | ') + '\n'
+            var sampleCols = sampleResult[0].columns
+            sampleResult[0].values.forEach(function(row) {
+              output += '  ' + row.map(function(v, ci) { return sampleCols[ci] + '=' + v }).join(' | ') + '\n'
             })
           }
         }
