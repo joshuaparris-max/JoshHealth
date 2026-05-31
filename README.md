@@ -142,6 +142,7 @@ See the connector architecture and step-by-step integration guide in `docs/conne
 ## Planned improvements & roadmap
 
 See the full list of proposed improvements and next steps in `docs/improvements.md`.
+See current implementation status in `docs/progress.md`.
 
 Key priorities:
 

@@ -43,7 +43,12 @@ This document lists 10 actionable improvements to HealthLens, with suggested nex
    - Add staged connectors: Drive folder watcher (serverless), Fitbit OAuth, Withings OAuth.
    - Document automation options and required secrets (do not store tokens client-side insecurely).
 
+Current progress
+- SQLite parsing now runs through a worker and produces an evidence-grounded Data Pack instead of raw sample rows.
+- Provider errors now include the actual HTTP status/message and practical hints.
+- Supabase sync/dashboard plumbing exists; the next reliability task is mocked positive-path tests plus production fake-sync verification.
+
 Next steps
-- Create `docs/improvements.md` (this file).
-- Update `README.md` and `docs/plan.md` to reference this roadmap.
-- Implement the Health Connect importer as the first code task.
+- Add successful sync endpoint tests with a mocked Supabase admin client.
+- Add dashboard tests for empty and fake Supabase data.
+- Build the real Android Health Connect reader after the web sync loop is proven.

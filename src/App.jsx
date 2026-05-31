@@ -295,7 +295,7 @@ export default function App() {
               />
             )}
             {error && (
-              <div className="bg-crimson-glow border border-crimson-health/30 rounded-xl p-4 text-crimson-health text-sm">
+              <div className="bg-crimson-glow border border-crimson-health/30 rounded-xl p-4 text-crimson-health text-sm whitespace-pre-wrap">
                 {error}
               </div>
             )}
@@ -320,7 +320,7 @@ export default function App() {
             <AnalysisView result={analysisResult} streaming={streaming} />
 
             {error && (
-              <div className="bg-crimson-glow border border-crimson-health/30 rounded-xl p-4 text-crimson-health text-sm">
+              <div className="bg-crimson-glow border border-crimson-health/30 rounded-xl p-4 text-crimson-health text-sm whitespace-pre-wrap">
                 {error}
               </div>
             )}

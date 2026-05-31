@@ -20,6 +20,12 @@ function formatValue(value, fallback = '--', digits = 0) {
   return String(value)
 }
 
+function average(rows, key) {
+  const values = rows.map((row) => row[key]).filter((value) => typeof value === 'number')
+  if (values.length === 0) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
 export default function SupabaseDashboard({ summaries, selectedDays, onSelectDays }) {
   const summary = useMemo(() => {
     if (!summaries || summaries.length === 0) return null
@@ -59,11 +65,11 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
       latest,
       totals,
       averages: {
-        hrv_rmssd: summaries.filter((r) => typeof r.hrv_rmssd === 'number').reduce((sum, r) => sum + r.hrv_rmssd, 0) / Math.max(1, summaries.filter((r) => typeof r.hrv_rmssd === 'number').length),
-        resting_hr: summaries.filter((r) => typeof r.resting_hr === 'number').reduce((sum, r) => sum + r.resting_hr, 0) / Math.max(1, summaries.filter((r) => typeof r.resting_hr === 'number').length),
-        respiratory_rate: summaries.filter((r) => typeof r.respiratory_rate === 'number').reduce((sum, r) => sum + r.respiratory_rate, 0) / Math.max(1, summaries.filter((r) => typeof r.respiratory_rate === 'number').length),
-        weight_kg: summaries.filter((r) => typeof r.weight_kg === 'number').reduce((sum, r) => sum + r.weight_kg, 0) / Math.max(1, summaries.filter((r) => typeof r.weight_kg === 'number').length),
-        source_confidence: summaries.filter((r) => typeof r.source_confidence === 'number').reduce((sum, r) => sum + r.source_confidence, 0) / Math.max(1, summaries.filter((r) => typeof r.source_confidence === 'number').length),
+        hrv_rmssd: average(summaries, 'hrv_rmssd'),
+        resting_hr: average(summaries, 'resting_hr'),
+        respiratory_rate: average(summaries, 'respiratory_rate'),
+        weight_kg: average(summaries, 'weight_kg'),
+        source_confidence: average(summaries, 'source_confidence'),
       },
       warnings: parseWarnings(summaries),
     }
