@@ -53,6 +53,14 @@ The active milestone is the dependable MVP loop:
 - Added a GitHub Actions HealthLens Doctor workflow that can run the doctor manually or daily, using repository secrets when present.
 - Added admin self-test positive-path tests with a mocked Supabase admin client, covering insert/query/idempotency/cleanup and blocked non-test cleanup.
 - Added Playwright browser smoke tests for the Supabase dashboard charts across desktop and mobile, with mocked Supabase responses in CI.
+- Added Strava exercise-source connector scaffolding:
+  - Supabase tables for Strava activities and webhook events
+  - OAuth start/callback endpoints
+  - webhook verification/event intake
+  - token refresh/activity fetch helpers
+  - webhook registration/list/delete scripts
+  - 90-day backfill script
+  - Strava status panel and exercise-only Data Pack rules
 - Removed the unused Recharts dependency after replacing dashboard trends with lightweight SVG charts.
 
 ## Still To Do
@@ -61,6 +69,7 @@ The active milestone is the dependable MVP loop:
 - Replace Android manual test payloads with real Health Connect aggregate reads.
 - Add Supabase server-side deletion/export controls if remote data management becomes necessary.
 - Add `HEALTHLENS_SYNC_SECRET` to GitHub Actions secrets if we want unattended production fake-sync checks.
+- Add Strava env vars in Vercel, create the Strava webhook subscription, and run a live 90-day backfill after Strava OAuth is connected.
 - Run the fake sync script against production when `HEALTHLENS_SYNC_SECRET` is available locally.
 - Build real Android Health Connect reads instead of the current placeholder button.
 - Add stronger PDF lab-value extraction and clinical-document structure.

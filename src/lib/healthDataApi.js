@@ -1,5 +1,8 @@
 import { supabase } from './supabaseClient.js'
 
+const viteEnv = import.meta.env || {}
+const nodeEnv = typeof process !== 'undefined' ? process.env : {}
+
 const summaryFields = `
   id,
   user_id,
@@ -23,8 +26,13 @@ const summaryFields = `
 `
 
 export const isSupabaseConfigured = Boolean(
-  import.meta.env.VITE_SUPABASE_URL &&
-  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY)
+  (viteEnv.VITE_SUPABASE_URL || nodeEnv.VITE_SUPABASE_URL || nodeEnv.SUPABASE_URL) &&
+  (
+    viteEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    viteEnv.VITE_SUPABASE_ANON_KEY ||
+    nodeEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    nodeEnv.VITE_SUPABASE_ANON_KEY
+  )
 )
 
 function defaultDateString(date = new Date()) {
@@ -172,4 +180,17 @@ export async function buildSupabaseDataPack({ days = 30 } = {}) {
   }
 
   return pack
+}
+
+export async function getStravaStatus({ days = 90 } = {}) {
+  try {
+    const response = await fetch(`/api/strava/status?days=${encodeURIComponent(days)}`)
+    const data = await response.json().catch(() => null)
+    if (!response.ok) {
+      return { data: null, error: new Error(data?.error || `Strava status failed: HTTP ${response.status}`) }
+    }
+    return { data, error: null }
+  } catch (error) {
+    return { data: null, error }
+  }
 }

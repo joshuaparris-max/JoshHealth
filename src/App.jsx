@@ -13,9 +13,10 @@ import SyncStatus from './components/SyncStatus.jsx'
 import SupabaseDashboard from './components/SupabaseDashboard.jsx'
 import HistoryView from './components/HistoryView.jsx'
 import SettingsPanel from './components/SettingsPanel.jsx'
+import StravaPanel from './components/StravaPanel.jsx'
 import { parseFile } from './lib/fileParser.js'
 import { runAnalysis } from './lib/claudeApi.js'
-import { isSupabaseConfigured, getDailySummaries, getLatestSyncStatus, getSyncImports, getMetricAvailability } from './lib/healthDataApi.js'
+import { isSupabaseConfigured, getDailySummaries, getLatestSyncStatus, getSyncImports, getMetricAvailability, getStravaStatus } from './lib/healthDataApi.js'
 import { buildSyncedDataPack } from './lib/syncedDataPack.js'
 import { saveAnalysis } from './lib/db.js'
 
@@ -142,9 +143,13 @@ export default function App() {
     setStage(STAGES.ANALYSE)
   }, [])
 
-  const handleUseSyncedDataForAnalysis = useCallback(() => {
-    const virtualFile = buildSyncedDataPack(supabaseSummaries, { selectedDays })
+  const handleUseSyncedDataForAnalysis = useCallback(async () => {
     if (!supabaseSummaries.length) return
+    const stravaResult = await getStravaStatus({ days: selectedDays })
+    const virtualFile = buildSyncedDataPack(supabaseSummaries, {
+      selectedDays,
+      stravaStatus: stravaResult.data,
+    })
     setParsedFiles(prev => {
       const withoutPrevious = prev.filter(file => file.type !== 'supabase')
       return [...withoutPrevious, virtualFile]
@@ -248,6 +253,7 @@ export default function App() {
 
             {activeTab === 'sources' && (
               <>
+                <StravaPanel />
                 <SupabaseStatus 
                   loading={supabaseLoading}
                   error={supabaseError}
@@ -261,7 +267,14 @@ export default function App() {
 
             {activeTab === 'upload' && (
               <div className="space-y-6 animate-slide-up">
-                <UploadZone onFiles={handleFiles} parsing={parsing} parseLog={parseLog} />
+                <UploadZone
+                  files={files}
+                  parsedFiles={parsedFiles}
+                  parsing={parsing}
+                  parseLog={parseLog}
+                  onFiles={handleFiles}
+                  onRemove={removeFile}
+                />
                 
                 {parsedFiles.length > 0 && (
                   <div className="space-y-4">

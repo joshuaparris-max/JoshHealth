@@ -1,6 +1,6 @@
 # Connector Architecture & Integration Guide
 
-This document explains how to connect HealthLens to external data sources (Fitbit, Withings, Welltory, Sleep as Android, Eufy, and Health Connect), and includes scaffolding for serverless OAuth endpoints.
+This document explains how to connect HealthLens to external data sources (Fitbit, Strava, Withings, Welltory, Sleep as Android, Eufy, and Health Connect), and includes scaffolding for serverless OAuth endpoints.
 
 Overview
 - Use a small serverless layer (Vercel Serverless Functions or equivalent) to handle OAuth redirects, token exchange, and webhooks. Keep secrets in the hosting provider's secret store (Vercel Environment Variables / GitHub Secrets). Do not commit secrets to the repo.
@@ -10,6 +10,7 @@ Overview
 Quick connector summary
 
 - Fitbit: OAuth2 + subscriptions/webhooks. Best for steps, heart-rate, sleep, active zone minutes. Requires creating a Fitbit developer app and adding `FITBIT_CLIENT_ID` and `FITBIT_CLIENT_SECRET` to environment variables.
+- Strava: OAuth2 + webhooks. Best for recorded activities only. Implemented: OAuth start/callback, webhook event intake, status endpoint, Supabase provenance tables, webhook scripts, and 90-day backfill. Do not treat Strava as sleep, HRV baseline, resting-HR, respiratory-rate, weight, lab, symptom, or all-day step evidence.
 - Withings: OAuth2. Best for weight, sleep-mat signals, body composition. Create a Withings developer app; add `WITHINGS_CLIENT_ID`/`WITHINGS_CLIENT_SECRET`.
 - Welltory: CSV/CSV API. Prefer manual CSV uploads or API export; add a parser for HRV/RR intervals.
 - Sleep as Android: ZIP/CSV export. Use the existing ZIP parser improvements; add automation by watching a Drive folder or by using a small Android export helper.

@@ -11,6 +11,7 @@ A personal health data analysis app powered by Groq, OpenRouter, or Anthropic. U
 - **Streaming AI analysis** via Groq, OpenRouter, or Anthropic
 - **Follow-up chat**: Ask questions about your data after analysis
 - **Download results** as Markdown, JSON evidence bundle, or print/PDF
+- **Strava exercise sync** via OAuth, webhook event storage, and optional activity backfill
 - **API key stored locally** — never leaves your browser
 
 ## One-command automation check
@@ -70,6 +71,30 @@ To enable the live Supabase dashboard, configure these Vercel environment variab
 - `VITE_SUPABASE_PUBLISHABLE_KEY` or `VITE_SUPABASE_ANON_KEY`
 - `HEALTHLENS_SYNC_SECRET` (for secure sync and admin cleanup)
 
+### Environment variables for Strava
+
+Strava is treated as an exercise/activity source only. Configure these server-side Vercel variables:
+
+- `STRAVA_CLIENT_ID`
+- `STRAVA_CLIENT_SECRET`
+- `STRAVA_VERIFY_TOKEN`
+- `STRAVA_WEBHOOK_CALLBACK_URL` (for example `https://health-lens-rust.vercel.app/api/strava/webhook`)
+- `STRAVA_REDIRECT_URI` (for example `https://health-lens-rust.vercel.app/api/strava/callback`)
+- `STRAVA_SCOPES` (optional, defaults to `read,activity:read`)
+
+After creating the Strava API app, set the callback domain to your Vercel domain, then run:
+
+```bash
+npm run strava:webhook:register
+```
+
+Useful Strava commands:
+
+```bash
+npm run strava:webhook:list
+npm run strava:backfill -- --days=90
+```
+
 ## Supabase live dashboard
 
 The app now reads real synced data from Supabase and includes a Sync Status dashboard section for `daily_health_summary`.
@@ -77,6 +102,18 @@ The app now reads real synced data from Supabase and includes a Sync Status dash
 If no synced health rows exist, it shows:
 
 > “No synced health data yet. Use Android HealthLens Sync or manual upload.”
+
+## Strava exercise sync
+
+The Strava connector adds:
+
+- `/api/strava/start` and `/api/strava/callback` for OAuth
+- `/api/strava/webhook` for webhook verification/event intake
+- `/api/strava/status` for safe dashboard status
+- `strava_activities` and `strava_webhook_events` Supabase tables
+- idempotent activity mapping into `exercise_sessions` and optional `heart_metrics`
+
+Strava data is labelled as recorded exercise only. HealthLens must not use it as evidence for sleep, HRV baseline, resting HR, respiratory rate, weight, labs, symptoms, or all-day steps.
 
 ## Admin endpoint safety
 

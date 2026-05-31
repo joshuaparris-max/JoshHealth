@@ -60,16 +60,18 @@ test.beforeEach(async ({ page }) => {
 test('renders synced dashboard charts on desktop and mobile', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByTestId('supabase-dashboard')).toBeVisible()
+  await expect(page.getByText('Supabase Dashboard')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Last 7 days' })).toBeVisible()
   await expect(page.getByText('Latest summary date: 2026-05-31')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Analyse synced data' })).toBeVisible()
 
-  const charts = page.getByTestId('supabase-chart')
-  await expect(charts).toHaveCount(6)
-  await expect(page.getByTestId('sparkline-steps')).toBeVisible()
-  await expect(page.getByTestId('sparkline-sleep_hours')).toBeVisible()
-  await expect(page.getByTestId('sparkline-hrv_rmssd')).toBeVisible()
+  await expect(page.getByText('Steps Trend')).toBeVisible()
+  await expect(page.getByText('Sleep Duration (min)')).toBeVisible()
+  await expect(page.getByText('Recovery (HRV & RHR)')).toBeVisible()
+  await expect(page.getByText('Weight Trend (kg)')).toBeVisible()
+
+  const charts = page.locator('.recharts-responsive-container')
+  await expect(charts).toHaveCount(4)
 
   const firstChartBox = await charts.first().boundingBox()
   expect(firstChartBox?.width).toBeGreaterThan(250)

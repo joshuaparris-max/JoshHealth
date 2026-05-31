@@ -6,7 +6,30 @@ function formatMetric(value) {
   return String(value)
 }
 
-export function buildSyncedDataPack(rows = [], { selectedDays = 7 } = {}) {
+function formatStravaStatus(status) {
+  if (!status || !status.connected) {
+    return `STRAVA EXERCISE SOURCE
+- Status: not connected or no status available.
+- Interpretation: no Strava exercise evidence is available in this Data Pack.`
+  }
+
+  const sportBreakdown = Object.entries(status.sportTypes || {})
+    .map(([sport, count]) => `${sport}: ${count}`)
+    .join(', ') || 'none'
+
+  return `STRAVA EXERCISE SOURCE
+- Status: connected
+- Scope: ${status.scope || 'unknown'}
+- Activities in window: ${formatMetric(status.activityCount)}
+- Latest activity date: ${status.latestActivityDate || 'missing'}
+- Total recorded Strava distance_m: ${formatMetric(status.totalDistanceM)}
+- Total recorded Strava moving_seconds: ${formatMetric(status.totalMovingSeconds)}
+- Activity type breakdown: ${sportBreakdown}
+- Activities with activity-level HR: ${formatMetric(status.heartRateActivities)}
+- Interpretation: Strava is exercise/activity evidence only. It is not an all-day movement, sleep, HRV baseline, resting-HR, respiratory-rate, weight, lab, or symptom source.`
+}
+
+export function buildSyncedDataPack(rows = [], { selectedDays = 7, stravaStatus = null } = {}) {
   const summary = summarizeDailyRows(rows)
   if (!summary) {
     return {
@@ -58,6 +81,8 @@ ${metricRows.map(([metric, value]) => `- ${metric}: ${formatMetric(value)}`).joi
 WARNINGS
 ${summary.warnings.length ? summary.warnings.map((warning) => `- ${warning}`).join('\n') : '- No row-level warnings reported.'}
 
+${formatStravaStatus(stravaStatus)}
+
 DAILY ROWS
 date, steps, sleep_minutes, hrv_rmssd, resting_hr, respiratory_rate, weight_kg, exercise_minutes, source_confidence
 ${dailyLines.join('\n')}
@@ -67,6 +92,7 @@ INTERPRETATION RULES
 - Treat missing values as missing, not as zero.
 - Treat zero values as real zeros when they appear in the daily rows.
 - Do not infer nutrition, blood pressure, glucose, labs, ECG, symptoms, mood, or medications from these rows unless explicitly present elsewhere.
+- Do not use Strava activity data as evidence for sleep, HRV baseline, resting heart rate, respiratory rate, weight, labs, symptoms, or all-day steps.
 - This is not medical advice.`
 
   return {

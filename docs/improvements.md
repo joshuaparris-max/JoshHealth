@@ -57,6 +57,8 @@ Current progress
 - GitHub Actions can now run the doctor manually or daily, using repository secrets if configured.
 - Admin self-test coverage now uses a mocked Supabase admin client for positive-path insert/query/idempotency/cleanup checks.
 - Playwright browser smoke tests now check Supabase dashboard chart rendering on desktop and mobile with mocked Supabase data.
+- Strava exercise-source sync scaffolding now exists with OAuth, webhook event storage, activity backfill scripts, Supabase provenance tables, and Data Pack guardrails that prevent treating Strava as all-day health data.
 
 Next steps
+- Configure Strava app settings/env vars, register the webhook subscription, connect OAuth, and run the first live backfill.
 - Build the real Android Health Connect reader after the web sync loop is proven.
