@@ -95,6 +95,10 @@ Security notes:
 
 To run the manual workflow after you push these files, go to the repository Actions tab, open "Apply Changes (manual)" and click "Run workflow".
 
+Integration docs
+
+See the connector architecture and step-by-step integration guide in `docs/connectors.md` for instructions on linking Fitbit, Withings, Health Connect, Welltory, Sleep as Android and Eufy devices.
+
 
 ## Planned improvements & roadmap
 
