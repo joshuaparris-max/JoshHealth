@@ -11,9 +11,11 @@ import Dashboard from './components/Dashboard.jsx'
 import SupabaseStatus from './components/SupabaseStatus.jsx'
 import SyncStatus from './components/SyncStatus.jsx'
 import SupabaseDashboard from './components/SupabaseDashboard.jsx'
+import HistoryView from './components/HistoryView.jsx'
 import { parseFile } from './lib/fileParser.js'
 import { runAnalysis } from './lib/claudeApi.js'
 import { isSupabaseConfigured, getDailySummaries, getLatestSyncStatus, getSyncImports, getMetricAvailability } from './lib/healthDataApi.js'
+import { saveAnalysis } from './lib/db.js'
 
 const STAGES = { SETUP: 'setup', UPLOAD: 'upload', ANALYSE: 'analyse', RESULT: 'result' }
 
@@ -41,7 +43,7 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState([])
   const [showChat, setShowChat] = useState(false)
   const [showCheckIn, setShowCheckIn] = useState(false)
-  const [activeTab, setActiveTab] = useState('upload') // upload, sources, checkin
+  const [activeTab, setActiveTab] = useState('upload') // upload, sources, checkin, history
 
   const [supabaseLoading, setSupabaseLoading] = useState(false)
   const [supabaseError, setSupabaseError] = useState('')
@@ -167,6 +169,13 @@ export default function App() {
         setAnalysisResult(text)
         setStreaming(false)
         setShowChat(true)
+        // Save to history
+        saveAnalysis({
+          result: text,
+          model: connection.model,
+          modes: selectedModes,
+          question: customQuestion.trim()
+        }).catch(err => console.warn('Failed to save analysis history', err))
       },
       onError: (msg) => {
         setError(msg)
@@ -249,7 +258,7 @@ export default function App() {
           <div className="animate-slide-up pt-8 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-border/50 pb-2">
               <div className="flex gap-4">
-                {['upload', 'sources', 'checkin'].map(tab => (
+                {['upload', 'sources', 'checkin', 'history'].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -264,6 +273,10 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            {activeTab === 'history' && (
+              <HistoryView />
+            )}
 
             {activeTab === 'checkin' && (
               <DailyCheckIn onSubmit={handleCheckIn} />
