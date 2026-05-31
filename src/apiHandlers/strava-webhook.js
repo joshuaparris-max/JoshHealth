@@ -1,10 +1,10 @@
-import supabaseAdmin from '../lib/supabaseServer.js'
+import supabaseAdmin from '../apiLib/supabaseServer.js'
 import {
   fetchStravaActivity,
   getValidStravaAccessToken,
   markStravaActivityDeleted,
   upsertStravaActivityToSupabase,
-} from '../lib/stravaClient.js'
+} from '../apiLib/stravaClient.js'
 
 function getQueryValue(req, key) {
   return req.query?.[key] ?? req.query?.[key.replace('.', '_')]

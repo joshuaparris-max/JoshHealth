@@ -1,5 +1,5 @@
-import { fetchDailySummary } from '../lib/fitbitClient.js'
-import supabaseAdmin from '../lib/supabaseServer.js'
+import { fetchDailySummary } from '../apiLib/fitbitClient.js'
+import supabaseAdmin from '../apiLib/supabaseServer.js'
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {

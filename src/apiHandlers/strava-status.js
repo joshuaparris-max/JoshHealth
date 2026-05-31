@@ -1,4 +1,4 @@
-import supabaseAdmin from '../lib/supabaseServer.js'
+import supabaseAdmin from '../apiLib/supabaseServer.js'
 
 function startOfWindow(days) {
   return new Date(Date.now() - Number(days || 90) * 24 * 60 * 60 * 1000).toISOString()

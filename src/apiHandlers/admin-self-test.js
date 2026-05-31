@@ -1,4 +1,4 @@
-import supabaseAdmin from '../lib/supabaseServer.js'
+import supabaseAdmin from '../apiLib/supabaseServer.js'
 
 function getAuthToken(req) {
   const auth = req.headers['authorization'] || req.headers['Authorization']

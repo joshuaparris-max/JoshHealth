@@ -1,5 +1,5 @@
 import fetch from 'node-fetch'
-import supabaseAdmin from '../lib/supabaseServer.js'
+import supabaseAdmin from '../apiLib/supabaseServer.js'
 
 export default async function handler(req, res) {
   const { FITBIT_CLIENT_ID, FITBIT_CLIENT_SECRET, BASE_URL } = process.env

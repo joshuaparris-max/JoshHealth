@@ -1,4 +1,4 @@
-import supabaseAdmin from '../lib/supabaseServer.js'
+import supabaseAdmin from '../apiLib/supabaseServer.js'
 
 function validatePayload(body) {
   if (!body || typeof body !== 'object') return 'Invalid JSON body'

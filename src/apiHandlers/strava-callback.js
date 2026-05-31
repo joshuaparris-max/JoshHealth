@@ -4,7 +4,7 @@ import {
   getValidStravaAccessToken,
   storeStravaToken,
   upsertStravaActivityToSupabase,
-} from '../lib/stravaClient.js'
+} from '../apiLib/stravaClient.js'
 
 function appRedirect(status, details = {}) {
   const base = (process.env.BASE_URL || process.env.HEALTHLENS_APP_URL || 'https://health-lens-rust.vercel.app').replace(/\/$/, '')
