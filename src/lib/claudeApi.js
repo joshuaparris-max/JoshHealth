@@ -1,6 +1,7 @@
 import { SOURCE_PRIORITY } from './schema.js'
 import { buildStructuredDataPack } from './dataPackBuilder.js'
 import { buildSupabaseDataPack, isSupabaseConfigured } from './healthDataApi.js'
+import { getAnalysisHistory } from './db.js'
 
 const ENDPOINTS = {
   groq: 'https://api.groq.com/openai/v1/chat/completions',
@@ -178,6 +179,24 @@ export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'cla
     }
   }
 
+  // Fetch analysis history for longitudinal context
+  let historyContext = ''
+  try {
+    const history = await getAnalysisHistory()
+    if (history && history.length > 0) {
+      historyContext = '\n\n=== ANALYSIS HISTORY (Longitudinal Context) ===\n'
+      // Include up to 3 most recent analyses
+      history.slice(0, 3).forEach((item, idx) => {
+        historyContext += `\n--- Historical Analysis ${idx + 1} (${new Date(item.date).toLocaleDateString()}) ---\n`
+        historyContext += `Modes: ${item.modes.join(', ')}\n`
+        if (item.question) historyContext += `Question: ${item.question}\n`
+        historyContext += `Result Summary: ${item.result.slice(0, 500)}...\n`
+      })
+    }
+  } catch (e) {
+    console.warn('Failed to fetch analysis history for context', e)
+  }
+
   const modeInstructions = selectedModes
     .map(m => `### MODE: ${ANALYSIS_MODES[m].label}\n${ANALYSIS_MODES[m].prompt}`)
     .join('\n\n')
@@ -203,6 +222,7 @@ ${customQuestion ? `CUSTOM USER QUESTION:\n${customQuestion}` : ''}
 
 HEALTH DATA PACK:
 ${dataPack}
+${historyContext}
 
 ---
 

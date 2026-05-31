@@ -439,7 +439,9 @@ Deliverables:
 - **Persistence Layer**: [x] Move from in-memory state to `indexedDB` to keep health data across browser refreshes.
 - **Deduplication Engine**: [x] Implement a background worker to merge overlapping records from different sources based on the priority rules in `schema.js`.
 - **Advanced PDF Parsing**: [x] Implement more robust regex-based extraction for common pathology lab formats (e.g., Laverty, Sonic, etc.).
-- **Android Companion App**: [x] Build a lightweight Kotlin app to read Health Connect and push daily summaries to the HealthLens API.
+- **Android Companion App**: [x] Build a lightweight Kotlin app to read Health Connect and push daily summaries to the HealthLens API. (Upgraded to 7-day batch sync).
+- **Longitudinal History**: [x] AI now compares current results with past saved analyses.
+- **Local Backup**: [x] Added JSON export for entire database.
 
 ### **Medium Priority**
 - **Fitbit Web API Integration**: [ ] Allow direct OAuth connection to Fitbit for real-time daily sync.

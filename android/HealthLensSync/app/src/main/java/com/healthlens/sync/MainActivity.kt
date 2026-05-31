@@ -90,12 +90,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun readAndSyncData(client: HealthConnectClient, endpoint: String, token: String) {
-        statusText.text = "Status: Reading data..."
+        statusText.text = "Status: Reading data (last 7 days)..."
         
         try {
-            val start = Instant.now().minus(1, ChronoUnit.DAYS)
+            val start = Instant.now().minus(7, ChronoUnit.DAYS)
             val end = Instant.now()
             val filter = TimeRangeFilter.between(start, end)
+            
+            val zoneId = ZoneId.systemDefault()
+            val startDate = LocalDate.ofInstant(start, zoneId).toString()
+            val endDate = LocalDate.ofInstant(end, zoneId).toString()
 
             // Read Steps
             val stepsResponse = client.readRecords(ReadRecordsRequest(StepsRecord::class, filter))
@@ -142,16 +146,15 @@ class MainActivity : AppCompatActivity() {
 
             statusText.text = "Status: Data collected. Sending to HealthLens..."
 
-            val today = LocalDate.now(ZoneId.systemDefault()).toString()
             val payload = JSONObject().apply {
                 put("deviceIdHash", "android-health-connect-sync")
                 put("dateRange", JSONObject().apply {
-                    put("start", today)
-                    put("end", today)
+                    put("start", startDate)
+                    put("end", endDate)
                 })
                 put("dailySummaries", JSONArray().put(JSONObject().apply {
-                    put("date", today)
-                    put("timezone", ZoneId.systemDefault().id)
+                    put("date", endDate)
+                    put("timezone", zoneId.id)
                     put("steps", totalSteps)
                     put("sleep_minutes", if (sleepResponse.records.isNotEmpty()) ChronoUnit.MINUTES.between(sleepResponse.records.first().startTime, sleepResponse.records.last().endTime) else 0)
                     put("source_confidence", 1.0)
@@ -161,7 +164,7 @@ class MainActivity : AppCompatActivity() {
                 put("heartRecords", heartRecords)
                 put("bodyRecords", bodyRecords)
                 put("syncStartedAt", OffsetDateTime.now().toString())
-                put("appVersion", "HealthLensSync/0.4.0")
+                put("appVersion", "HealthLensSync/0.5.0")
             }
 
             val result = withContext(Dispatchers.IO) {

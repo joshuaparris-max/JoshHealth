@@ -26,7 +26,7 @@ export async function parseFile(file, onProgress) {
       log('Parsing Apple Health structure...', 'info', 70)
       result.summary = summariseAppleHealthXML(result.content, file.name)
       log('Done - Apple Health XML extracted', 'success', 100)
-    } else if (ext === 'pdf') {
+    } else if (ext === 'json') {
       log('Reading file from disk...', 'info', 5)
       result.content = await readTextWithProgress(file, (p) =>
         log(`Reading file... ${p}%`, 'info', p * 0.6)
@@ -47,12 +47,9 @@ export async function parseFile(file, onProgress) {
       const content = await parsePDF(file, log)
       result.content = content
 
-      if (content.toLowerCase().includes('pathology') || content.toLowerCase().includes('laboratory')) {
-        log('Detected Pathology/Lab report', 'info', 90)
-        result.summary = `LAB REPORT DETECTED\n${truncate(content, 5000)}`
-      } else {
-        result.summary = truncate(content, 10000)
-      }
+      log('Extracting clinical markers...', 'info', 85)
+      result.summary = summarisePathology(content, file.name)
+      log('Done - PDF markers extracted', 'success', 100)
     } else if (ext === 'zip') {
       result.content = await parseZIP(file, log)
       result.summary = truncate(result.content, 16000)
@@ -173,6 +170,50 @@ function summariseAppleHealthXML(content, filename) {
   summary += samples.join('\n')
   if (activity.length) summary += `\n${activity[0]}`
   if (workouts.length) summary += `\n${workouts[0]}`
+  
+  return summary
+}
+
+/**
+ * Heuristic pathology parser for common Australian labs (Sonic, Laverty).
+ */
+function summarisePathology(content, filename) {
+  const clean = content.replace(/\s+/g, ' ')
+  
+  const labs = {
+    HbA1c: /HbA1c\s*([\d.]+)\s*%/i,
+    Cholesterol: /Total\s*Cholesterol\s*([\d.]+)\s*mmol\/L/i,
+    HDL: /HDL\s*Cholesterol\s*([\d.]+)\s*mmol\/L/i,
+    LDL: /LDL\s*Cholesterol\s*([\d.]+)\s*mmol\/L/i,
+    Triglycerides: /Triglycerides\s*([\d.]+)\s*mmol\/L/i,
+    VitaminD: /Vitamin\s*D\s*\(Total\)\s*([\d.]+)\s*nmol\/L/i,
+    B12: /Vitamin\s*B12\s*([\d.]+)\s*pmol\/L/i,
+    Iron: /Iron\s*([\d.]+)\s*umol\/L/i,
+    Ferritin: /Ferritin\s*([\d.]+)\s*ug\/L/i,
+    TSH: /TSH\s*([\d.]+)\s*mU\/L/i,
+    ALT: /ALT\s*([\d.]+)\s*U\/L/i,
+    AST: /AST\s*([\d.]+)\s*U\/L/i,
+    eGFR: /eGFR\s*([\d.]+)\s*mL\/min/i
+  }
+
+  let summary = `=== PATHOLOGY REPORT: ${filename} ===\n`
+  summary += `Detected Lab Markers (Heuristic):\n`
+  
+  let found = false
+  Object.entries(labs).forEach(([name, regex]) => {
+    const match = clean.match(regex)
+    if (match) {
+      summary += `- ${name}: ${match[1]}\n`
+      found = true
+    }
+  })
+
+  if (!found) {
+    summary += `No specific clinical markers matched known heuristics. Falling back to full text summary.\n`
+  }
+
+  summary += `\n--- REPORT CONTENT ---\n`
+  summary += truncate(content, 8000)
   
   return summary
 }

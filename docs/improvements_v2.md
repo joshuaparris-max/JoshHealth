@@ -57,6 +57,9 @@ Following the successful implementation of the core sync infrastructure, these 1
 - [x] 1. Unit Testing (Core parsers and DataPack)
 - [x] 2. Apple Health XML (Basic schema mapping)
 - [x] 3. Chart Enhancements (Formatted units in tooltips)
-- [ ] 4. Multi-Day Batch Sync for Android
-- [ ] 5. Pathology Lab Heuristics
-- [ ] ...
+- [x] 4. Multi-Day Batch Sync for Android (Upgraded to 7-day range)
+- [x] 5. Pathology Lab Heuristics (Sonic/Laverty regex parsers)
+- [x] 6. Longitudinal Analysis History (Included in AI context)
+- [x] 7. GP Report Formatting (Professional print stylesheet)
+- [x] 8. Data Quality Audit Dashboard (New Audit tab for provenance)
+- [x] 10. AI-Powered "Ask My Data" Chat Refinement (Deterministic DataPacks)

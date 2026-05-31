@@ -49,6 +49,25 @@ export default function SourceManager({ parsedFiles }) {
     }
   }
 
+  const handleExportBackup = async () => {
+    try {
+      const backup = {}
+      for (const table of db.tables) {
+        backup[table.name] = await table.toArray()
+      }
+      
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `healthlens-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Failed to export backup: ' + e.message)
+    }
+  }
+
   return (
     <div className="bg-ink-soft border border-slate-border rounded-2xl p-6 space-y-6 animate-slide-up">
       <div className="flex items-start justify-between gap-4">
@@ -56,13 +75,21 @@ export default function SourceManager({ parsedFiles }) {
           <h3 className="font-display font-semibold text-white text-base">Health Sources</h3>
           <p className="text-slate-ui text-xs">Manage your data sources and priorities</p>
         </div>
-        <button
-          onClick={handleDeleteAll}
-          disabled={clearing}
-          className="text-[10px] uppercase tracking-widest text-crimson-health hover:text-white border border-crimson-health/30 hover:bg-crimson-health px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-        >
-          {clearing ? 'Clearing...' : 'Delete All Data'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExportBackup}
+            className="text-[10px] uppercase tracking-widest text-slate-ui hover:text-white border border-slate-border hover:bg-white/5 px-3 py-1.5 rounded-lg transition-all"
+          >
+            Export Backup
+          </button>
+          <button
+            onClick={handleDeleteAll}
+            disabled={clearing}
+            className="text-[10px] uppercase tracking-widest text-crimson-health hover:text-white border border-crimson-health/30 hover:bg-crimson-health px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+          >
+            {clearing ? 'Clearing...' : 'Delete All Data'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

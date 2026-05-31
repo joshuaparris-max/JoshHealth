@@ -12,6 +12,7 @@ import SupabaseStatus from './components/SupabaseStatus.jsx'
 import SyncStatus from './components/SyncStatus.jsx'
 import SupabaseDashboard from './components/SupabaseDashboard.jsx'
 import HistoryView from './components/HistoryView.jsx'
+import DataAuditView from './components/DataAuditView.jsx'
 import SettingsPanel from './components/SettingsPanel.jsx'
 import StravaPanel from './components/StravaPanel.jsx'
 import { parseFile } from './lib/fileParser.js'
@@ -46,7 +47,7 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState([])
   const [showChat, setShowChat] = useState(false)
   const [showCheckIn, setShowCheckIn] = useState(false)
-  const [activeTab, setActiveTab] = useState('upload') // upload, sources, checkin, history, settings
+  const [activeTab, setActiveTab] = useState('upload') // upload, sources, checkin, history, audit, settings
 
   const [supabaseLoading, setSupabaseLoading] = useState(false)
   const [supabaseError, setSupabaseError] = useState('')
@@ -219,12 +220,12 @@ export default function App() {
           {/* Sidebar */}
           <div className="lg:col-span-4 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-border/50 pb-2">
-              <div className="flex gap-4">
-                {['upload', 'sources', 'checkin', 'history', 'settings'].map(tab => (
+              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
+                {['upload', 'sources', 'checkin', 'history', 'audit', 'settings'].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`text-xs font-mono uppercase tracking-widest pb-2 transition-all ${
+                    className={`text-xs font-mono uppercase tracking-widest pb-2 transition-all flex-shrink-0 ${
                       activeTab === tab 
                         ? 'text-jade border-b-2 border-jade' 
                         : 'text-slate-ui hover:text-white'
@@ -245,6 +246,10 @@ export default function App() {
 
             {activeTab === 'history' && (
               <HistoryView />
+            )}
+
+            {activeTab === 'audit' && (
+              <DataAuditView summaries={supabaseSummaries} />
             )}
 
             {activeTab === 'checkin' && (
