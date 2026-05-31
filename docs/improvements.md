@@ -50,6 +50,7 @@ Current progress
 - Supabase dashboard summaries now have test coverage for empty data, zero values, mixed warning payloads, and chart-ready rows.
 - Synced Supabase rows can now be converted into a Data Pack for the existing AI analysis flow.
 - Completed analyses now export Markdown, structured JSON evidence bundles, and browser print/save-as-PDF output.
+- Android scaffold can now send a manual fake daily summary payload to the production sync endpoint for on-device pipe testing.
 
 Next steps
 - Add admin self-test positive-path tests with a mocked Supabase admin client.
