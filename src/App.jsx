@@ -98,6 +98,19 @@ export default function App() {
     setStage(STAGES.UPLOAD)
   }, [])
 
+  const handleClearSession = useCallback(() => {
+    setFiles([])
+    setParsedFiles([])
+    setError('')
+    setStage(connection ? STAGES.UPLOAD : STAGES.SETUP)
+  }, [connection])
+
+  const handleClearProviderKeys = useCallback(() => {
+    setConnection(null)
+    setError('')
+    setStage(STAGES.SETUP)
+  }, [])
+
   const handleFiles = useCallback(async (newFiles) => {
     if (!newFiles.length) return
     setParsing(true)
@@ -240,13 +253,8 @@ export default function App() {
             {activeTab === 'settings' && (
               <SettingsPanel 
                 connection={connection}
-                onConnect={handleConnect}
-                onClearSession={() => {
-                  setFiles([])
-                  setParsedFiles([])
-                  setStage(STAGES.UPLOAD)
-                }}
-                onClearProviderKeys={() => setConnection(null)}
+                onClearSession={handleClearSession}
+                onClearProviderKeys={handleClearProviderKeys}
               />
             )}
 

@@ -97,7 +97,9 @@ export default function ProviderSelector({ onSubmit }) {
     }
     localStorage.setItem(`jha_key_${provider.id}`, key.trim())
     localStorage.setItem(`jha_model_${provider.id}`, model)
-    onSubmit({ provider: provider.id, model, apiKey: key.trim() })
+    if (typeof onSubmit === 'function') {
+      onSubmit({ provider: provider.id, model, apiKey: key.trim() })
+    }
   }
 
   return (
