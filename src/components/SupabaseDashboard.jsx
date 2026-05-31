@@ -1,4 +1,16 @@
 import { useMemo } from 'react'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts'
 
 function parseWarnings(rows) {
   const warnings = new Set()
@@ -18,6 +30,22 @@ function formatValue(value, fallback = '--', digits = 0) {
     return digits > 0 ? value.toFixed(digits) : Math.round(value).toLocaleString()
   }
   return String(value)
+}
+
+const ChartTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-ink border border-slate-border p-3 rounded-xl shadow-2xl">
+        <p className="text-xs text-slate-ui mb-1 font-mono uppercase tracking-wider">{label}</p>
+        {payload.map((item, idx) => (
+          <p key={idx} className="text-sm font-bold" style={{ color: item.color || item.fill }}>
+            {item.name}: {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
+          </p>
+        ))}
+      </div>
+    )
+  }
+  return null
 }
 
 export default function SupabaseDashboard({ summaries, selectedDays, onSelectDays }) {
@@ -55,9 +83,21 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
       }
     )
 
+    // Prepare chart data - ensure chronological order
+    const chartData = [...summaries].sort((a, b) => a.date.localeCompare(b.date)).map(s => ({
+      date: s.date.slice(5), // MM-DD
+      steps: s.steps,
+      sleep: s.sleep_minutes,
+      hrv: s.hrv_rmssd,
+      rhr: s.resting_hr,
+      weight: s.weight_kg,
+      exercise: s.exercise_minutes
+    }))
+
     return {
       latest,
       totals,
+      chartData,
       averages: {
         hrv_rmssd: summaries.filter((r) => typeof r.hrv_rmssd === 'number').reduce((sum, r) => sum + r.hrv_rmssd, 0) / Math.max(1, summaries.filter((r) => typeof r.hrv_rmssd === 'number').length),
         resting_hr: summaries.filter((r) => typeof r.resting_hr === 'number').reduce((sum, r) => sum + r.resting_hr, 0) / Math.max(1, summaries.filter((r) => typeof r.resting_hr === 'number').length),
@@ -95,7 +135,7 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
   ]
 
   return (
-    <section className="rounded-3xl border border-slate-border bg-ink-soft p-6">
+    <section className="rounded-3xl border border-slate-border bg-ink-soft p-6 space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-slate-ui">Supabase Dashboard</p>
@@ -117,7 +157,43 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Main Charts */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Steps Chart */}
+        <div className="rounded-3xl border border-slate-border bg-ink p-6">
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-ui mb-6">Steps Trend</p>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={summary.chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} hide />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34, 197, 94, 0.05)' }} />
+                <Bar dataKey="steps" fill="#22C55E" radius={[4, 4, 0, 0]} name="Steps" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* HRV & RHR Chart */}
+        <div className="rounded-3xl border border-slate-border bg-ink p-6">
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-ui mb-6">Recovery (HRV & RHR)</p>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={summary.chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} hide />
+                <Tooltip content={<ChartTooltip />} />
+                <Line type="monotone" dataKey="hrv" stroke="#22C55E" strokeWidth={2} dot={false} name="HRV (ms)" />
+                <Line type="monotone" dataKey="rhr" stroke="#E11D48" strokeWidth={2} dot={false} name="Rest HR (bpm)" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <div key={card.label} className="rounded-3xl border border-slate-border bg-ink p-5">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-ui">{card.label}</p>
@@ -127,7 +203,7 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
         ))}
       </div>
 
-      <div className="mt-6 rounded-3xl border border-slate-border bg-ink p-5">
+      <div className="rounded-3xl border border-slate-border bg-ink p-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs uppercase tracking-[0.35em] text-slate-ui">Warnings</p>
           <span className="text-xs text-slate-ui">{summary.warnings.length} unique issues</span>

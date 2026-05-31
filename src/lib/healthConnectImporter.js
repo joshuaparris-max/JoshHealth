@@ -1,4 +1,4 @@
-import SQL from 'sql.js'
+import initSqlJs from 'sql.js'
 import db, { addSource, addImport, bulkInsertSummaries, bulkInsertSleep, bulkInsertHeart } from './db.js'
 import { formatFileSize } from './fileParser.js'
 
@@ -16,8 +16,7 @@ export async function importHealthConnectFile(file, onProgress = () => {}) {
   onProgress('File loaded into memory')
 
   // Instantiate SQL.js (uses wasm)
-  const SQLLib = (await SQL()).default || SQL
-  const sql = await SQLLib({ locateFile: () => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.wasm' })
+  const sql = await initSqlJs({ locateFile: () => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.wasm' })
   onProgress('sql.js initialized')
 
   const dbSql = new sql.Database(new Uint8Array(arrayBuffer))

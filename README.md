@@ -32,7 +32,7 @@ To enable the live Supabase dashboard, configure these Vercel environment variab
 
 ## Supabase live dashboard
 
-The app now reads real synced data from Supabase and includes a Sync Status/ dashboard section for `daily_health_summary`.
+The app now reads real synced data from Supabase and includes a Sync Status dashboard section for `daily_health_summary`.
 
 If no synced health rows exist, it shows:
 
@@ -40,12 +40,12 @@ If no synced health rows exist, it shows:
 
 ## Admin endpoint safety
 
-The admin endpoint at `/api/admin/self-test` is retained for safe system checks and cleanup only.
-It requires bearer auth via `HEALTHLENS_SYNC_SECRET`, does not expose secrets, and only deletes explicit test imports with a safe `test` or `self-test` device ID.
+The admin endpoint at `/api/admin/self-test` is secured for system checks and cleanup.
+It requires bearer auth via `HEALTHLENS_SYNC_SECRET`, does not expose secrets, and only operates on explicit test imports.
 
-## Android scaffold
+## Android sync scaffold
 
-A minimal Android scaffold lives in `android/HealthLensSync` with a manual `Sync now` placeholder, Health Connect permission planning, and a default endpoint.
+A minimal Android scaffold is available in `android/HealthLensSync/` for future Health Connect integration. It includes a manual "Sync now" button and planned data types.
 
 ## Fake sync test
 
@@ -62,6 +62,17 @@ HEALTHLENS_SYNC_SECRET=your_secret_here npm run fake-sync -- --delete-test-data
 ```
 
 ## Deploy on GitHub Pages
+
+```bash
+npm run build
+# Then use gh-pages branch or GitHub Actions to serve /dist
+```
+
+## License & Contributing
+
+This project is licensed under the [MIT License](LICENSE). Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## Supported file types
 
 ```bash
 npm run build

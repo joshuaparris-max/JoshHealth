@@ -410,6 +410,9 @@ Recent additions:
 - [x] Implement source priority and deduplication rules (Phase 4)
 - [x] Enhance UI with Import History and Source Management (Phase 5)
 - [x] Add Daily Context Tags / Check-in form (Phase 1/2)
+- [x] Add Supabase-backed dashboard and Sync Status (Phase 5/6)
+- [x] Secure admin endpoints and add fake sync test script (Phase 7)
+- [x] Create Android Health Connect sync scaffold (Phase 6)
 - [x] Final QA testing and documentation update in plan.md
 
 Deliverables:
