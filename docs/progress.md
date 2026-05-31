@@ -50,22 +50,28 @@ The active milestone is the dependable MVP loop:
 - Upgraded the Android scaffold from a dead placeholder to a manual test sender that posts one Android-style daily summary payload to the sync endpoint.
 - Added in-app privacy/settings controls to clear the current upload session, IndexedDB imports, and browser-stored AI provider keys.
 - Added `npm run doctor` as a one-command automation check for tests, build, live app, sync endpoint auth boundary, optional provider health checks, and optional fake production sync/cleanup.
+- Added a GitHub Actions HealthLens Doctor workflow that can run the doctor manually or daily, using repository secrets when present.
 - Removed the unused Recharts dependency after replacing dashboard trends with lightweight SVG charts.
 
 ## Still To Do
 
 - Add admin self-test positive-path tests with a mocked Supabase admin client.
-- Add dashboard tests for empty Supabase data and fake synced data.
 - Add browser-level screenshot checks for the Supabase dashboard charts.
 - Add a proper Reports page for saved Markdown/JSON/PDF output history.
 - Replace Android manual test payloads with real Health Connect aggregate reads.
 - Add Supabase server-side deletion/export controls if remote data management becomes necessary.
-- Add `HEALTHLENS_SYNC_SECRET` to a secure automation runner if we want unattended production fake-sync checks.
+- Add `HEALTHLENS_SYNC_SECRET` to GitHub Actions secrets if we want unattended production fake-sync checks.
 - Run the fake sync script against production when `HEALTHLENS_SYNC_SECRET` is available locally.
 - Build real Android Health Connect reads instead of the current placeholder button.
-- Add charts for synced steps, sleep, HRV, resting HR, respiratory rate, weight, and exercise minutes.
-- Build exportable report types beyond Markdown copy/download.
 - Add stronger PDF lab-value extraction and clinical-document structure.
+
+## Minimal User Setup
+
+To keep manual setup small:
+
+1. Add `HEALTHLENS_SYNC_SECRET` to Vercel and GitHub Actions secrets.
+2. Add at least one AI provider key in the web app, or add provider keys to GitHub Actions secrets for automated provider checks.
+3. Use the Android companion's manual sync button for pipe testing until real Health Connect reads are implemented.
 
 ## Deployment Rule
 

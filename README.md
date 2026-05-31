@@ -35,6 +35,16 @@ HEALTHLENS_SYNC_SECRET=your_secret_here npm run doctor -- --sync --cleanup
 
 The script never prints secret values.
 
+## Minimal setup path
+
+For the most automated setup, do these once:
+
+1. Add the Vercel environment variables listed below so the deployed app can read/write Supabase safely.
+2. Add the same `HEALTHLENS_SYNC_SECRET` to GitHub Actions secrets so the scheduled Doctor workflow can test live sync automatically.
+3. Add at least one AI provider key in the web app settings, or add provider keys to GitHub Actions secrets if you want the Doctor workflow to check providers too.
+
+After that, normal updates are: Codex changes code, runs tests/build, pushes to GitHub, and Vercel deploys.
+
 ## Deploy on Vercel (recommended)
 
 1. Push to GitHub
@@ -143,9 +153,10 @@ Then open http://localhost:5173
 
 ## Automation: GitHub Actions
 
-This repository includes two GitHub Actions workflows to help automate CI and optional doc formatting:
+This repository includes GitHub Actions workflows to help automate CI, production checks, and optional doc formatting:
 
 - `.github/workflows/ci.yml` — runs on `push` and `pull_request`, installing dependencies and running lint/test/build steps.
+- `.github/workflows/healthlens-doctor.yml` — runs manually or once daily, executing `npm run doctor -- --sync --cleanup` against the live Vercel app. Add the optional repository secrets below to turn on provider checks and production fake-sync checks.
 - `.github/workflows/dispatch-apply.yml` — a manually-triggered workflow (`workflow_dispatch`) that runs `.github/scripts/apply_changes.sh` to format docs and commit changes back to `main` when there are updates.
 
 Security notes:
@@ -153,7 +164,13 @@ Security notes:
 - I cannot use or accept Personal Access Tokens pasted into chat. Do not post secrets here.
 - To allow the `dispatch-apply` workflow to push commits, the built-in `GITHUB_TOKEN` is sufficient for commits within the repository. If you need cross-repo access or other scopes, create a fine-scoped PAT and add it to repository secrets as `ACTIONS_PAT`.
 
-To run the manual workflow after you push these files, go to the repository Actions tab, open "Apply Changes (manual)" and click "Run workflow".
+Optional repository secrets for the Doctor workflow:
+
+- `HEALTHLENS_SYNC_SECRET` enables the production fake-sync/cleanup check.
+- `GROQ_API_KEY`, `OPENROUTER_API_KEY`, or `ANTHROPIC_API_KEY` enable live provider health checks.
+
+To run the manual Doctor workflow after you push these files, go to the repository Actions tab, open "HealthLens Doctor" and click "Run workflow".
+To run the optional doc formatter, open "Apply Changes (manual)" and click "Run workflow".
 
 Integration docs
 
