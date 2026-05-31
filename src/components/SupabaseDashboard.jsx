@@ -35,13 +35,28 @@ function formatValue(value, fallback = '--', digits = 0) {
 const ChartTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-ink border border-slate-border p-3 rounded-xl shadow-2xl">
-        <p className="text-xs text-slate-ui mb-1 font-mono uppercase tracking-wider">{label}</p>
-        {payload.map((item, idx) => (
-          <p key={idx} className="text-sm font-bold" style={{ color: item.color || item.fill }}>
-            {item.name}: {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
-          </p>
-        ))}
+      <div className="bg-ink border border-slate-border p-3 rounded-xl shadow-2xl backdrop-blur-xl">
+        <p className="text-[10px] text-slate-ui mb-2 font-mono uppercase tracking-widest border-b border-slate-border/50 pb-1">{label}</p>
+        <div className="space-y-1.5">
+          {payload.map((item, idx) => {
+            let unit = ''
+            if (item.name.toLowerCase().includes('steps')) unit = ' steps'
+            if (item.name.toLowerCase().includes('sleep')) unit = ' min'
+            if (item.name.toLowerCase().includes('hrv')) unit = ' ms'
+            if (item.name.toLowerCase().includes('hr')) unit = ' bpm'
+            if (item.name.toLowerCase().includes('weight')) unit = ' kg'
+            if (item.name.toLowerCase().includes('exercise')) unit = ' min'
+            
+            return (
+              <div key={idx} className="flex items-center justify-between gap-4">
+                <span className="text-[11px] text-slate-ui font-medium">{item.name}:</span>
+                <span className="text-sm font-bold font-mono" style={{ color: item.color || item.fill }}>
+                  {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}{unit}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }

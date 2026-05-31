@@ -18,7 +18,15 @@ export async function parseFile(file, onProgress) {
       log('Parsing columns and structure...', 'info', 75)
       result.summary = summariseCSV(result.content, file.name)
       log(`Done - ${lines.length - 1} data rows extracted`, 'success', 100)
-    } else if (ext === 'json') {
+    } else if (ext === 'xml') {
+      log('Reading XML file...', 'info', 5)
+      result.content = await readTextWithProgress(file, (p) =>
+        log(`Reading XML... ${p}%`, 'info', p * 0.6)
+      )
+      log('Parsing Apple Health structure...', 'info', 70)
+      result.summary = summariseAppleHealthXML(result.content, file.name)
+      log('Done - Apple Health XML extracted', 'success', 100)
+    } else if (ext === 'pdf') {
       log('Reading file from disk...', 'info', 5)
       result.content = await readTextWithProgress(file, (p) =>
         log(`Reading file... ${p}%`, 'info', p * 0.6)
@@ -105,33 +113,68 @@ function truncate(text, maxChars) {
   return text.slice(0, maxChars) + `\n\n[...truncated - ${text.length - maxChars} chars omitted...]`
 }
 
-function summariseCSV(text, filename) {
-  const lines = text.trim().split('\n')
-  if (lines.length < 2) return `CSV FILE: ${filename}\nEmpty or header-only file.`
+function summariseCSV(content, filename) {
+  const lines = content.trim().split('\n')
+  if (lines.length === 0) return `[Empty CSV: ${filename}]`
 
-  const header = lines[0]
-  const rowCount = lines.length - 1
-  const cols = header.split(',').map(c => c.trim())
-  let numericSummary = ''
-  const sampleRows = lines.slice(1, 100).map(l => l.split(','))
+  const headers = lines[0].split(',').map(h => h.trim())
+  const rows = lines.slice(1)
+  
+  let summary = `=== CSV EXPORT: ${filename} ===\n`
+  summary += `Total rows: ${rows.length}\n`
+  summary += `Columns: ${headers.join(', ')}\n\n`
+  
+  // Sample first 5 rows for LLM
+  summary += `--- SAMPLE DATA ---\n`
+  summary += lines.slice(0, 6).join('\n')
+  summary += `\n...`
+  
+  return summary
+}
 
-  cols.forEach((col, ci) => {
-    const vals = sampleRows.map(r => parseFloat(r[ci])).filter(v => !isNaN(v))
-    if (vals.length > 5) {
-      const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-      numericSummary += `  - ${col}: avg ~${avg.toFixed(2)} (from sample)\n`
+/**
+ * Summarises Apple Health XML exports.
+ * Heuristically extracts record counts and samples for different biometrics.
+ */
+function summariseAppleHealthXML(content, filename) {
+  const records = content.match(/<Record type="HKQuantityTypeIdentifier(.*?)"/g) || []
+  const activity = content.match(/<ActivitySummary(.*?)\/>/g) || []
+  const workouts = content.match(/<Workout(.*?)\/>/g) || []
+  
+  let summary = `=== APPLE HEALTH EXPORT: ${filename} ===\n`
+  summary += `Total records found: ${records.length}\n`
+  summary += `Total activity summaries: ${activity.length}\n`
+  summary += `Total workouts: ${workouts.length}\n\n`
+  
+  // Extract specific metric counts
+  const metrics = {}
+  records.forEach(r => {
+    const typeMatch = r.match(/HKQuantityTypeIdentifier(.*?)"/)
+    if (typeMatch) {
+      const type = typeMatch[1]
+      metrics[type] = (metrics[type] || 0) + 1
     }
   })
-
-  return `CSV FILE: ${filename}
-Columns: ${header}
-Total rows: ${rowCount}
-${numericSummary}
-First rows:
-${lines.slice(0, 4).join('\n')}
-
-Full extract (up to 8000 chars):
-${truncate(text, 8000)}`
+  
+  summary += `--- RECORD COUNTS ---\n`
+  Object.entries(metrics).forEach(([type, count]) => {
+    summary += `- ${type}: ${count} records\n`
+  })
+  
+  // Extract samples for the LLM to see structure
+  summary += `\n--- DATA STRUCTURE SAMPLES ---\n`
+  const samples = []
+  const uniqueTypes = Object.keys(metrics)
+  uniqueTypes.slice(0, 5).forEach(type => {
+    const sampleMatch = content.match(new RegExp(`<Record type="HKQuantityTypeIdentifier${type}"[\\s\\S]*?\\/>`))
+    if (sampleMatch) samples.push(sampleMatch[0])
+  })
+  
+  summary += samples.join('\n')
+  if (activity.length) summary += `\n${activity[0]}`
+  if (workouts.length) summary += `\n${workouts[0]}`
+  
+  return summary
 }
 
 function summariseJSON(text, filename) {

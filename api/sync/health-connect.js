@@ -16,7 +16,7 @@ function jsonValue(value, fallback) {
   return JSON.stringify(value ?? fallback)
 }
 
-function buildSummaryRow(summary, body, importId, userId) {
+export function buildSummaryRow(summary, body, importId, userId) {
   return {
     user_id: userId,
     date: summary.date,
@@ -157,10 +157,14 @@ export function createSyncHandler({ supabaseClient = supabaseAdmin, env = proces
       if (bodyRecords.length) await supabaseClient.from('body_measurements').insert(bodyRecords)
       if (exerciseRecords.length) await supabaseClient.from('exercise_sessions').insert(exerciseRecords)
 
-      // Daily summaries
       const summaries = body.dailySummaries.map(s => buildSummaryRow(s, body, importId, user_id))
       const { error: insErr } = await supabaseClient.from('daily_health_summary').insert(summaries)
-      if (insErr) console.error('Failed to insert summaries', insErr.message)
+      if (insErr) {
+        console.error('Failed to insert summaries', insErr.message)
+        // Cleanup the import record if we can't save the data
+        await supabaseClient.from('health_sync_imports').delete().eq('id', importId)
+        return res.status(500).json({ error: 'Failed to record daily summaries' })
+      }
 
       return res.status(200).json({ ok: true, importId, recordsReceived: summaries.length, warnings: [] })
     } catch (e) {
