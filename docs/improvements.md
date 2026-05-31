@@ -54,8 +54,8 @@ Current progress
 - In-app settings now include local session/import clearing and provider-key clearing.
 - `npm run doctor` now automates local test/build, live app checks, provider checks when keys are present, and optional fake production sync/cleanup.
 - GitHub Actions can now run the doctor manually or daily, using repository secrets if configured.
+- Admin self-test coverage now uses a mocked Supabase admin client for positive-path insert/query/idempotency/cleanup checks.
 
 Next steps
-- Add admin self-test positive-path tests with a mocked Supabase admin client.
 - Add browser-level screenshot checks for the Supabase dashboard charts.
 - Build the real Android Health Connect reader after the web sync loop is proven.

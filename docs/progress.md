@@ -51,11 +51,11 @@ The active milestone is the dependable MVP loop:
 - Added in-app privacy/settings controls to clear the current upload session, IndexedDB imports, and browser-stored AI provider keys.
 - Added `npm run doctor` as a one-command automation check for tests, build, live app, sync endpoint auth boundary, optional provider health checks, and optional fake production sync/cleanup.
 - Added a GitHub Actions HealthLens Doctor workflow that can run the doctor manually or daily, using repository secrets when present.
+- Added admin self-test positive-path tests with a mocked Supabase admin client, covering insert/query/idempotency/cleanup and blocked non-test cleanup.
 - Removed the unused Recharts dependency after replacing dashboard trends with lightweight SVG charts.
 
 ## Still To Do
 
-- Add admin self-test positive-path tests with a mocked Supabase admin client.
 - Add browser-level screenshot checks for the Supabase dashboard charts.
 - Add a proper Reports page for saved Markdown/JSON/PDF output history.
 - Replace Android manual test payloads with real Health Connect aggregate reads.
