@@ -412,7 +412,7 @@ Deliverables:
 3. [x] Working Health Connect ZIP importer.
 4. [x] Working Withings ZIP importer (basic CSV prioritization).
 5. [x] Working Sleep as Android importer (basic CSV prioritization).
-6. [x] Working pathology PDF importer (basic detection).
+6. [x] Working pathology PDF importer (Robust parser fix implemented).
 7. [x] Import UI with warnings and import history.
 8. [x] Dashboard showing real imported data.
 9. [x] README explaining how Josh can feed new data weekly.

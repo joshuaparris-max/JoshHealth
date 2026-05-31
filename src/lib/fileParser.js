@@ -168,8 +168,13 @@ function summariseJSON(text, filename) {
 async function parsePDF(file, log) {
   try {
     log('Loading pdfjs-dist library...', 'info', 2)
-    const pdfjsLib = await import('pdfjs-dist')
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+    // Use the legacy build if possible for better browser compatibility
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs').catch(() => import('pdfjs-dist'))
+    
+    // For 4.x versions, the worker is often .mjs
+    const version = pdfjsLib.version || '4.4.168'
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`
+    
     log('Library loaded', 'info', 8)
 
     log('Reading PDF file from disk...', 'info', 10)
@@ -179,7 +184,13 @@ async function parsePDF(file, log) {
     log(`File read — ${formatFileSize(file.size)} loaded into memory`, 'info', 30)
 
     log('Parsing PDF document structure...', 'info', 35)
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    // disableWorker: true forces the "fake worker" on the main thread, 
+    // which is more reliable in browser environments for simple text extraction.
+    const pdf = await pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      disableWorker: true,
+      verbosity: 0
+    }).promise
     log(`Document parsed — ${pdf.numPages} page${pdf.numPages !== 1 ? 's' : ''} found`, 'info', 40)
 
     let fullText = `PDF FILE: ${file.name} (${pdf.numPages} pages)\n\n`
