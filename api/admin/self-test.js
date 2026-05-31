@@ -25,6 +25,9 @@ function buildResponse() {
       health_sync_imports: 0,
       daily_health_summary: 0,
     },
+    createdIds: {
+      importId: null,
+    },
     deletedRows: {
       health_sync_imports: 0,
       daily_health_summary: 0,
@@ -107,17 +110,19 @@ export default async function handler(req, res) {
       const { data: deletedSummary, error: deleteSummaryError } = await supabaseAdmin
         .from('daily_health_summary')
         .delete()
+        .select()
         .in('import_id', importIds)
 
       if (deleteSummaryError) {
         result.warnings.push('Summary cleanup failed: ' + deleteSummaryError.message)
       } else {
-        result.deletedRows.daily_health_summary = deletedSummary?.length || 0
+        result.deletedRows.daily_health_summary = Array.isArray(deletedSummary) ? deletedSummary.length : 0
       }
 
       const { data: deletedImport, error: deleteImportError } = await supabaseAdmin
         .from('health_sync_imports')
         .delete()
+        .select()
         .in('id', importIds)
 
       if (deleteImportError) {
@@ -159,6 +164,7 @@ export default async function handler(req, res) {
 
     result.checks.insertImport = true
     result.createdRows.health_sync_imports = 1
+    result.createdIds.importId = importRow.id
 
     const summaryPayload = {
       user_id,
@@ -229,17 +235,19 @@ export default async function handler(req, res) {
     const { data: deletedSummary, error: deleteSummaryError } = await supabaseAdmin
       .from('daily_health_summary')
       .delete()
+      .select()
       .eq('import_id', importRow.id)
 
     if (deleteSummaryError) {
       result.warnings.push('Summary cleanup failed: ' + deleteSummaryError.message)
     } else {
-      result.deletedRows.daily_health_summary = deletedSummary?.length || 0
+      result.deletedRows.daily_health_summary = Array.isArray(deletedSummary) ? deletedSummary.length : 0
     }
 
     const { data: deletedImport, error: deleteImportError } = await supabaseAdmin
       .from('health_sync_imports')
       .delete()
+      .select()
       .eq('id', importRow.id)
 
     if (deleteImportError) {
