@@ -80,3 +80,29 @@ Then open http://localhost:5173
 - Only extracted text summaries are sent to Anthropic's API
 - API key stored in localStorage — clear browser data to remove it
 - No backend, no tracking, no data storage
+
+## Automation: GitHub Actions
+
+This repository includes two GitHub Actions workflows to help automate CI and optional doc formatting:
+
+- `.github/workflows/ci.yml` — runs on `push` and `pull_request`, installing dependencies and running lint/test/build steps.
+- `.github/workflows/dispatch-apply.yml` — a manually-triggered workflow (`workflow_dispatch`) that runs `.github/scripts/apply_changes.sh` to format docs and commit changes back to `main` when there are updates.
+
+Security notes:
+
+- I cannot use or accept Personal Access Tokens pasted into chat. Do not post secrets here.
+- To allow the `dispatch-apply` workflow to push commits, the built-in `GITHUB_TOKEN` is sufficient for commits within the repository. If you need cross-repo access or other scopes, create a fine-scoped PAT and add it to repository secrets as `ACTIONS_PAT`.
+
+To run the manual workflow after you push these files, go to the repository Actions tab, open "Apply Changes (manual)" and click "Run workflow".
+
+
+## Planned improvements & roadmap
+
+See the full list of proposed improvements and next steps in `docs/improvements.md`.
+
+Key priorities:
+
+- Automated Health Connect importer (first implementation)
+- Import preview and history UI
+- Privacy controls and encrypted local backups
+

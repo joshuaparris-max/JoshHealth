@@ -398,6 +398,13 @@ Phase 7 — safety/privacy:
 * Add export/delete-all-data controls.
 * Add local backup/export.
 
+---
+
+Recent additions:
+
+- A concise improvements roadmap was added: `docs/improvements.md` (10 actionable items and priorities).
+
+
 - [x] Create a normalized health schema and storage layer (Phase 2)
 - [x] Build robust importers for Withings, Sleep as Android, and Welltory (Phase 3)
 - [x] Implement source priority and deduplication rules (Phase 4)

@@ -1,0 +1,49 @@
+# Improvements & Roadmap
+
+This document lists 10 actionable improvements to HealthLens, with suggested next steps and priorities.
+
+1. Automated Health Connect importer (High)
+   - Build ZIP upload extractor that reads `health_connect_export.db`.
+   - Map tables into a normalized schema and produce daily summaries.
+   - Priority: implement as a web-worker task to avoid blocking UI.
+
+2. Android companion for daily sync (High)
+   - Create a lightweight Android app to request Health Connect permissions and send daily summaries to HealthLens via a secure endpoint or local file export.
+   - Start with a prototype that exports ZIPs to a watched Drive folder.
+
+3. Normalized local storage (Medium)
+   - Implement IndexedDB (e.g., `dexie.js`) schema matching `daily_health_summary`, `sleep_sessions`, `lab_results`, etc.
+   - Store source provenance, file hash, and import metadata for auditability.
+
+4. Robust PDF & lab-parser (Medium)
+   - Add targeted parsers for pathology PDFs using `pdfjs` + heuristic lab-value extraction.
+   - Add confidence scores and flag uncertain parses for manual review.
+
+5. UI: Import preview + history (High)
+   - Add an Import page with drag-and-drop, preview, detected date range, warnings, and import history.
+   - Allow cancel/revert of imports and show provenance per row.
+
+6. Privacy & export controls (High)
+   - Add clear privacy UI, export-delete-all-data controls, and an encrypted local backup option.
+   - Do not auto-send PDFs to third-party AI; always ask and show what will be sent.
+
+7. Performance: parsing in web workers (Medium)
+   - Move large parsing (ZIP/SQLite/PDF) into web workers and use streaming parsing for large files.
+   - Use `sql.js` in a worker for SQLite reads.
+
+8. Tests & CI (Medium)
+   - Add unit tests for parsers and core mapping logic.
+   - Add GitHub Actions to run lint, build, and tests on PRs.
+
+9. Visual dashboards & comparisons (Medium)
+   - Add charts for last 7/30/90 days: sleep, steps, resting HR, HRV by source.
+   - Add period comparison and anomaly detection highlights.
+
+10. Connector roadmap & automation (Low→Medium)
+   - Add staged connectors: Drive folder watcher (serverless), Fitbit OAuth, Withings OAuth.
+   - Document automation options and required secrets (do not store tokens client-side insecurely).
+
+Next steps
+- Create `docs/improvements.md` (this file).
+- Update `README.md` and `docs/plan.md` to reference this roadmap.
+- Implement the Health Connect importer as the first code task.
