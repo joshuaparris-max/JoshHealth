@@ -14,6 +14,7 @@ import SupabaseDashboard from './components/SupabaseDashboard.jsx'
 import { parseFile } from './lib/fileParser.js'
 import { runAnalysis } from './lib/claudeApi.js'
 import { isSupabaseConfigured, getDailySummaries, getLatestSyncStatus, getSyncImports, getMetricAvailability } from './lib/healthDataApi.js'
+import { buildSyncedDataPack } from './lib/syncedDataPack.js'
 
 const STAGES = { SETUP: 'setup', UPLOAD: 'upload', ANALYSE: 'analyse', RESULT: 'result' }
 
@@ -137,6 +138,21 @@ export default function App() {
     setStage(STAGES.ANALYSE)
   }, [])
 
+  const handleUseSyncedDataForAnalysis = useCallback(() => {
+    const virtualFile = buildSyncedDataPack(supabaseSummaries, { selectedDays })
+    if (!supabaseSummaries.length) return
+    setParsedFiles(prev => {
+      const withoutPrevious = prev.filter(file => file.type !== 'supabase')
+      return [...withoutPrevious, virtualFile]
+    })
+    setFiles(prev => {
+      const withoutPrevious = prev.filter(file => file.type !== 'supabase')
+      return [...withoutPrevious, { name: virtualFile.name, size: virtualFile.size, type: 'supabase' }]
+    })
+    setActiveTab('upload')
+    setStage(STAGES.ANALYSE)
+  }, [selectedDays, supabaseSummaries])
+
   const removeFile = useCallback((idx) => {
     setFiles(prev => prev.filter((_, i) => i !== idx))
     setParsedFiles(prev => prev.filter((_, i) => i !== idx))
@@ -216,7 +232,12 @@ export default function App() {
 
             <div className="grid gap-6 xl:grid-cols-[minmax(280px,360px)_1fr]">
               <SyncStatus latestImport={latestSyncImport} recentImports={recentImports} loading={supabaseLoading} />
-              <SupabaseDashboard summaries={supabaseSummaries} selectedDays={selectedDays} onSelectDays={setSelectedDays} />
+              <SupabaseDashboard
+                summaries={supabaseSummaries}
+                selectedDays={selectedDays}
+                onSelectDays={setSelectedDays}
+                onUseForAnalysis={handleUseSyncedDataForAnalysis}
+              />
             </div>
           </div>
         )}

@@ -48,6 +48,7 @@ Current progress
 - Provider errors now include the actual HTTP status/message and practical hints.
 - Supabase sync/dashboard plumbing exists; sync endpoint positive-path tests now cover success, idempotency, zero values, and summary-insert cleanup.
 - Supabase dashboard summaries now have test coverage for empty data, zero values, mixed warning payloads, and chart-ready rows.
+- Synced Supabase rows can now be converted into a Data Pack for the existing AI analysis flow.
 
 Next steps
 - Add admin self-test positive-path tests with a mocked Supabase admin client.
