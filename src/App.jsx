@@ -338,7 +338,14 @@ export default function App() {
               </span>
             </div>
 
-            <AnalysisView result={analysisResult} streaming={streaming} />
+            <AnalysisView
+              result={analysisResult}
+              streaming={streaming}
+              parsedFiles={parsedFiles}
+              selectedModes={selectedModes}
+              provider={connection?.provider}
+              model={connection?.model}
+            />
 
             {error && (
               <div className="bg-crimson-glow border border-crimson-health/30 rounded-xl p-4 text-crimson-health text-sm whitespace-pre-wrap">

@@ -43,13 +43,17 @@ The active milestone is the dependable MVP loop:
   - warnings can come back from Supabase as arrays or JSON strings
   - chart rows are prepared for steps, sleep, HRV, resting HR, weight, and exercise
 - Added an "Analyse synced data" dashboard action that converts the selected Supabase range into a deterministic Data Pack for the existing AI analysis/report flow.
+- Added report exports for completed analyses:
+  - Markdown
+  - structured JSON with evidence files, selected modes, provider/model, and medical boundary
+  - browser print/save-as-PDF path
 
 ## Still To Do
 
 - Add admin self-test positive-path tests with a mocked Supabase admin client.
 - Add dashboard tests for empty Supabase data and fake synced data.
 - Add browser-level screenshot checks for the Supabase dashboard charts.
-- Add a proper Reports page for saved Markdown/JSON/PDF outputs.
+- Add a proper Reports page for saved Markdown/JSON/PDF output history.
 - Run the fake sync script against production when `HEALTHLENS_SYNC_SECRET` is available locally.
 - Build real Android Health Connect reads instead of the current placeholder button.
 - Add charts for synced steps, sleep, HRV, resting HR, respiratory rate, weight, and exercise minutes.

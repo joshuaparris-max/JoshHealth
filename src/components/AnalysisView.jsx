@@ -1,19 +1,33 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { buildReportJson } from '../lib/reportBuilder.js'
 
-export default function AnalysisView({ result, streaming }) {
+export default function AnalysisView({ result, streaming, parsedFiles = [], selectedModes = [], provider = '', model = '' }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(result).catch(() => {})
   }
 
-  const handleDownload = () => {
-    const blob = new Blob([result], { type: 'text/markdown' })
+  const downloadBlob = (content, type, filename) => {
+    const blob = new Blob([content], { type })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `health-analysis-${new Date().toISOString().split('T')[0]}.md`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleDownload = () => {
+    downloadBlob(result, 'text/markdown', `health-analysis-${new Date().toISOString().split('T')[0]}.md`)
+  }
+
+  const handleDownloadJson = () => {
+    const report = buildReportJson({ result, parsedFiles, selectedModes, provider, model })
+    downloadBlob(JSON.stringify(report, null, 2), 'application/json', `health-analysis-${new Date().toISOString().split('T')[0]}.json`)
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   return (
@@ -46,6 +60,18 @@ export default function AnalysisView({ result, streaming }) {
               className="text-xs text-slate-ui hover:text-white border border-slate-border hover:border-jade/40 px-2.5 py-1 rounded-lg transition-all"
             >
               Download .md
+            </button>
+            <button
+              onClick={handleDownloadJson}
+              className="text-xs text-slate-ui hover:text-white border border-slate-border hover:border-jade/40 px-2.5 py-1 rounded-lg transition-all"
+            >
+              Download .json
+            </button>
+            <button
+              onClick={handlePrint}
+              className="text-xs text-slate-ui hover:text-white border border-slate-border hover:border-jade/40 px-2.5 py-1 rounded-lg transition-all"
+            >
+              Print / PDF
             </button>
           </div>
         )}
