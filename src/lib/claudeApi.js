@@ -1,5 +1,6 @@
 // Multi-provider AI integration: Anthropic, Groq, OpenRouter
 import { SOURCE_PRIORITY } from './schema.js'
+import { buildStructuredDataPack } from './dataPackBuilder.js'
 
 const ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
@@ -204,9 +205,7 @@ export async function checkHealth({ provider, model, apiKey }) {
 }
 
 export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', parsedFiles, selectedModes, customQuestion, onChunk, onComplete, onError }) {
-  const dataBlock = parsedFiles
-    .map(f => `\n\n=== FILE: ${f.name} (${f.type}, ${(f.size / 1024).toFixed(1)}KB) ===\n${f.summary}`)
-    .join('\n')
+  const dataPack = buildStructuredDataPack(parsedFiles)
 
   const modeInstructions = selectedModes
     .map(m => ANALYSIS_MODES[m])
@@ -247,7 +246,8 @@ RESPONSE STRUCTURE:
   const userPrompt = `Please perform a deep clinical and pattern analysis on this Health Data Pack.
 
 HEALTH DATA PACK:
-${dataBlock}
+${dataPack}
+`
 
 ---
 

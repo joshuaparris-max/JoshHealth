@@ -175,7 +175,23 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
           </div>
         </div>
 
-        {/* HRV & RHR Chart */}
+        {/* Sleep Duration Chart */}
+        <div className="rounded-3xl border border-slate-border bg-ink p-6">
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-ui mb-6">Sleep Duration (min)</p>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={summary.chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} hide />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }} />
+                <Bar dataKey="sleep" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Sleep (min)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Recovery (HRV & RHR) Chart */}
         <div className="rounded-3xl border border-slate-border bg-ink p-6">
           <p className="text-xs uppercase tracking-[0.35em] text-slate-ui mb-6">Recovery (HRV & RHR)</p>
           <div className="h-[200px] w-full">
@@ -187,6 +203,22 @@ export default function SupabaseDashboard({ summaries, selectedDays, onSelectDay
                 <Tooltip content={<ChartTooltip />} />
                 <Line type="monotone" dataKey="hrv" stroke="#22C55E" strokeWidth={2} dot={false} name="HRV (ms)" />
                 <Line type="monotone" dataKey="rhr" stroke="#E11D48" strokeWidth={2} dot={false} name="Rest HR (bpm)" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Weight Trend Chart */}
+        <div className="rounded-3xl border border-slate-border bg-ink p-6">
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-ui mb-6">Weight Trend (kg)</p>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={summary.chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} hide domain={['dataMin - 1', 'dataMax + 1']} />
+                <Tooltip content={<ChartTooltip />} />
+                <Line type="monotone" dataKey="weight" stroke="#F59E0B" strokeWidth={2} dot={true} name="Weight (kg)" connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </div>

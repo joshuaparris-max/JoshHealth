@@ -1,43 +1,68 @@
 import { SOURCE_PRIORITY } from '../lib/schema.js'
 import { useEffect, useState } from 'react'
-import db from '../lib/db.js'
+import db, { clearAllLocalData } from '../lib/db.js'
 
 export default function SourceManager({ parsedFiles }) {
   const [sourcesState, setSourcesState] = useState([])
+  const [clearing, setClearing] = useState(false)
+
+  const refresh = async () => {
+    try {
+      const sources = await db.health_sources.toArray()
+      const imports = await db.health_imports.orderBy('imported_at').reverse().toArray()
+      // Map known sources list to include DB state
+      const known = [
+        { id: 'health_connect', name: 'Health Connect', icon: '📱' },
+        { id: 'withings', name: 'Withings', icon: '⚖️' },
+        { id: 'fitbit', name: 'Fitbit', icon: '⌚' },
+        { id: 'sleep_as_android', name: 'Sleep as Android', icon: '😴' },
+        { id: 'strava', name: 'Strava', icon: '🏃' },
+        { id: 'welltory', name: 'Welltory', icon: '💓' },
+      ]
+      const merged = known.map(k => {
+        const found = sources.find(s => s.type === k.id || (s.name || '').toLowerCase().includes(k.id.replace('_',' ')))
+        const lastImport = imports.find(i => i.source_id === (found?.id))
+        return { ...k, connected: !!found, lastImport: lastImport?.imported_at || null }
+      })
+      setSourcesState(merged)
+    } catch (e) {
+      console.warn('Failed to load sources from DB', e.message)
+    }
+  }
 
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const sources = await db.health_sources.toArray()
-        const imports = await db.health_imports.orderBy('imported_at').reverse().toArray()
-        // Map known sources list to include DB state
-        const known = [
-          { id: 'health_connect', name: 'Health Connect', icon: '📱' },
-          { id: 'withings', name: 'Withings', icon: '⚖️' },
-          { id: 'fitbit', name: 'Fitbit', icon: '⌚' },
-          { id: 'sleep_as_android', name: 'Sleep as Android', icon: '😴' },
-          { id: 'strava', name: 'Strava', icon: '🏃' },
-          { id: 'welltory', name: 'Welltory', icon: '💓' },
-        ]
-        const merged = known.map(k => {
-          const found = sources.find(s => s.type === k.id || (s.name || '').toLowerCase().includes(k.id.replace('_',' ')))
-          const lastImport = imports.find(i => i.source_id === (found?.id))
-          return { ...k, connected: !!found, lastImport: lastImport?.imported_at || null }
-        })
-        if (mounted) setSourcesState(merged)
-      } catch (e) {
-        console.warn('Failed to load sources from DB', e.message)
-      }
-    })()
-    return () => { mounted = false }
+    refresh()
   }, [parsedFiles])
+
+  const handleDeleteAll = async () => {
+    if (!confirm('Are you sure you want to delete ALL local health data and history? This cannot be undone.')) return
+    
+    setClearing(true)
+    try {
+      await clearAllLocalData()
+      await refresh()
+      alert('All local data cleared.')
+    } catch (e) {
+      alert('Failed to clear data: ' + e.message)
+    } finally {
+      setClearing(false)
+    }
+  }
 
   return (
     <div className="bg-ink-soft border border-slate-border rounded-2xl p-6 space-y-6 animate-slide-up">
-      <div className="space-y-1">
-        <h3 className="font-display font-semibold text-white text-base">Health Sources</h3>
-        <p className="text-slate-ui text-xs">Manage your data sources and priorities</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="font-display font-semibold text-white text-base">Health Sources</h3>
+          <p className="text-slate-ui text-xs">Manage your data sources and priorities</p>
+        </div>
+        <button
+          onClick={handleDeleteAll}
+          disabled={clearing}
+          className="text-[10px] uppercase tracking-widest text-crimson-health hover:text-white border border-crimson-health/30 hover:bg-crimson-health px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+        >
+          {clearing ? 'Clearing...' : 'Delete All Data'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

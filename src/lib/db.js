@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import { HEALTH_SCHEMA } from './schema.js'
+import { HEALTH_SCHEMA, SOURCE_PRIORITY } from './schema.js'
 
 const db = new Dexie('HealthLensDB')
 
@@ -30,6 +30,11 @@ export const saveAnalysis = async (analysis) => {
 export const getAnalysisHistory = async () => {
   return db.analysis_history.orderBy('date').reverse().toArray()
 }
+
+export const clearAllLocalData = async () => {
+  return Promise.all(db.tables.map(table => table.clear()))
+}
+
 export const addSource = async (source) => {
   const id = await db.health_sources.add(source)
   return id
@@ -40,8 +45,40 @@ export const addImport = async (imp) => {
   return id
 }
 
-export const bulkInsertSummaries = async (rows) => {
-  return db.daily_health_summary.bulkAdd(rows)
+export const bulkInsertSummaries = async (summaries) => {
+  return db.transaction('rw', db.daily_health_summary, async () => {
+    for (const summary of summaries) {
+      const existing = await db.daily_health_summary.get(summary.date)
+      if (existing) {
+        // Resolve priority
+        // If the new source is higher priority than existing, overwrite
+        const metrics = Object.keys(SOURCE_PRIORITY)
+        const updated = { ...existing }
+        let changed = false
+
+        metrics.forEach(metric => {
+          if (summary[metric] !== undefined && summary[metric] !== null) {
+            const priorityList = SOURCE_PRIORITY[metric] || []
+            const newSourceIdx = priorityList.indexOf(summary.source_id)
+            const oldSourceIdx = priorityList.indexOf(existing.source_id)
+
+            // Lower index = higher priority
+            if (oldSourceIdx === -1 || (newSourceIdx !== -1 && newSourceIdx <= oldSourceIdx)) {
+              updated[metric] = summary[metric]
+              changed = true
+            }
+          }
+        })
+
+        if (changed) {
+          updated.source_id = summary.source_id // Update to the new "winner" source if many metrics changed
+          await db.daily_health_summary.put(updated)
+        }
+      } else {
+        await db.daily_health_summary.add(summary)
+      }
+    }
+  })
 }
 
 export const bulkInsertSleep = async (rows) => {
