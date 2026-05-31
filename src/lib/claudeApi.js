@@ -198,7 +198,7 @@ export async function checkHealth({ provider, model, apiKey }) {
   }
 }
 
-export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', parsedFiles, selectedModes, onChunk, onComplete, onError }) {
+export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', parsedFiles, selectedModes, customQuestion, onChunk, onComplete, onError }) {
   const dataBlock = parsedFiles
     .map(f => `\n\n=== FILE: ${f.name} (${f.type}, ${(f.size / 1024).toFixed(1)}KB) ===\n${f.summary}`)
     .join('\n')
@@ -225,6 +225,11 @@ IMPORTANT RULES:
 - If a parser failed, say "parser limitation", not "data absent".
 - Use plain Australian English — warm, direct, never patronising.
 - This is NOT medical advice. Always suggest discussing findings with a GP.
+
+ANALYSIS FOCUS:
+${modeInstructions}
+
+${customQuestion ? `USER CUSTOM QUESTION: ${customQuestion}` : ''}
 
 RESPONSE STRUCTURE:
 1. **Data Inventory**: Summarise files, tables, metrics, date ranges, and row counts.

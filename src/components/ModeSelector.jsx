@@ -1,6 +1,6 @@
 import { ANALYSIS_MODES } from '../lib/claudeApi.js'
 
-export default function ModeSelector({ selected, onChange, onAnalyse, disabled }) {
+export default function ModeSelector({ selected, onChange, onAnalyse, disabled, customQuestion, onCustomQuestionChange }) {
   const toggle = (key) => {
     onChange(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
@@ -49,21 +49,32 @@ export default function ModeSelector({ selected, onChange, onAnalyse, disabled }
         })}
       </div>
 
+      {/* Free-form analysis box */}
+      <div className="pt-2 space-y-2">
+        <label className="text-xs uppercase tracking-[0.35em] text-slate-ui block">Custom Question (Optional)</label>
+        <textarea
+          value={customQuestion}
+          onChange={(e) => onCustomQuestionChange(e.target.value)}
+          placeholder="e.g. Compare my sleep this winter vs last winter, or look for signs of overtraining."
+          className="w-full h-24 bg-ink border border-slate-border rounded-xl p-4 text-sm text-white focus:border-jade outline-none transition-all placeholder:text-slate-ui/40 resize-none"
+        />
+      </div>
+
       <div className="pt-2">
         <button
           onClick={onAnalyse}
-          disabled={disabled || selected.length === 0}
+          disabled={disabled || (selected.length === 0 && !customQuestion.trim())}
           className={`
             w-full font-display font-bold py-4 rounded-xl transition-all text-base
-            ${!disabled && selected.length > 0
+            ${!disabled && (selected.length > 0 || customQuestion.trim())
               ? 'bg-jade hover:bg-jade-dark text-ink-DEFAULT glow-active'
               : 'bg-ink border border-slate-border text-slate-ui cursor-not-allowed'
             }
           `}
         >
-          {selected.length === 0
-            ? 'Select at least one mode'
-            : `Analyse with ${selected.length} mode${selected.length !== 1 ? 's' : ''} →`
+          {selected.length === 0 && !customQuestion.trim()
+            ? 'Select a mode or ask a question'
+            : `Analyse ${selected.length > 0 ? `with ${selected.length} mode${selected.length !== 1 ? 's' : ''}` : ''}${selected.length > 0 && customQuestion.trim() ? ' and ' : ''}${customQuestion.trim() ? 'your question' : ''} →`
           }
         </button>
         <p className="text-center text-xs text-slate-ui/60 mt-2">

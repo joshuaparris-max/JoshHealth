@@ -50,6 +50,7 @@ export default function App() {
   const [recentImports, setRecentImports] = useState([])
   const [metricAvailability, setMetricAvailability] = useState(null)
   const [selectedDays, setSelectedDays] = useState(7)
+  const [customQuestion, setCustomQuestion] = useState('')
 
   const refreshSupabaseData = useCallback(async (days = selectedDays) => {
     if (!isSupabaseConfigured) return
@@ -145,7 +146,7 @@ export default function App() {
   const handleAnalyse = useCallback(async () => {
     if (!connection) { setError('Please connect an AI provider first.'); return }
     if (!parsedFiles.length) { setError('Please upload at least one file.'); return }
-    if (!selectedModes.length) { setError('Select at least one analysis mode.'); return }
+    if (!selectedModes.length && !customQuestion.trim()) { setError('Select at least one analysis mode or ask a question.'); return }
 
     setError('')
     setStreaming(true)
@@ -160,6 +161,7 @@ export default function App() {
       model: connection.model,
       parsedFiles,
       selectedModes,
+      customQuestion: customQuestion.trim(),
       onChunk: (text) => setAnalysisResult(text),
       onComplete: (text) => {
         setAnalysisResult(text)
@@ -172,7 +174,7 @@ export default function App() {
         setStage(STAGES.ANALYSE)
       }
     })
-  }, [connection, parsedFiles, selectedModes])
+  }, [connection, parsedFiles, selectedModes, customQuestion])
 
   const handleReset = useCallback(() => {
     setFiles([])
@@ -292,6 +294,8 @@ export default function App() {
                 onChange={setSelectedModes}
                 onAnalyse={handleAnalyse}
                 disabled={!parsedFiles.length || !connection}
+                customQuestion={customQuestion}
+                onCustomQuestionChange={setCustomQuestion}
               />
             )}
             {error && (
