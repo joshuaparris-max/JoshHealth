@@ -4,6 +4,12 @@
 //           { type: 'done', content }
 //           { type: 'error', message }
 
+try {
+  importScripts('/health-connect-analyzer.js')
+} catch (e) {
+  // The generic SQLite audit still works if the deep analyzer cannot be loaded.
+}
+
 function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -373,6 +379,7 @@ self.onmessage = async function(e) {
     var warnings = []
     var tableErrors = []
     var nonEmptyTables = 0
+    var deepAnalysis = null
 
     Object.keys(METRICS).forEach(function(key) { grouped[key] = [] })
     grouped.other = []
@@ -432,6 +439,17 @@ self.onmessage = async function(e) {
         grouped[metricKey].push(summary)
       } catch (err) {
         tableErrors.push(table + ': ' + err.message)
+      }
+    }
+
+    if (self.HealthConnectAnalyzer && typeof self.HealthConnectAnalyzer.analyze === 'function') {
+      try {
+        deepAnalysis = self.HealthConnectAnalyzer.analyze(db, { timeZone: 'Australia/Sydney' })
+        if (deepAnalysis) {
+          addWarning(warnings, 'Health Connect Deep Analysis is available below and should be preferred over generic daily aggregates for Health Connect tables.')
+        }
+      } catch (err) {
+        addWarning(warnings, 'Health Connect Deep Analysis failed: ' + err.message)
       }
     }
 
@@ -508,6 +526,10 @@ self.onmessage = async function(e) {
         })
       report += '\n'
     })
+
+    if (deepAnalysis && deepAnalysis.text) {
+      report += deepAnalysis.text + '\n\n'
+    }
 
     report += 'PARSER LIMITATIONS\n'
     report += '- This is a deterministic SQLite inventory, not a clinical analysis.\n'

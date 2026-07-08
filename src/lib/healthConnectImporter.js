@@ -75,7 +75,8 @@ export async function importHealthConnectFile(file, onProgress = () => {}) {
     }
   }
 
-  // Heart rate samples — store as heart_metrics (average per day)
+  // Heart rate samples — store as heart_metrics (average per day).
+  // This is not resting HR; true resting HR needs a defensible resting/overnight estimate.
   const heartMetrics = []
   if (hrTables.length) {
     for (const t of hrTables) {
@@ -103,7 +104,7 @@ export async function importHealthConnectFile(file, onProgress = () => {}) {
         })
         Object.entries(byDay).forEach(([date, obj]) => {
           const avg = Math.round(obj.sum / obj.count)
-          heartMetrics.push({ timestamp_or_date: date, metric_type: 'resting_hr', value: avg, unit: 'bpm', source_id: sourceId, import_id: importId, raw_json: JSON.stringify({ table: t }) })
+          heartMetrics.push({ timestamp_or_date: date, metric_type: 'average_hr', value: avg, unit: 'bpm', source_id: sourceId, import_id: importId, raw_json: JSON.stringify({ table: t, note: 'Daily average heart rate, not resting HR' }) })
         })
       } catch (e) {
         console.warn('HR table parse failed', t, e.message)

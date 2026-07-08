@@ -33,3 +33,29 @@ test('dataPackBuilder: handles empty summary gracefully', (t) => {
   const output = buildStructuredDataPack(mockFiles)
   assert.ok(output.includes('empty.txt'), 'Should still include filename')
 })
+
+test('dataPackBuilder: preserves structured Health Connect deep analysis JSON', (t) => {
+  const analysis = {
+    schema: 'health-connect-deep-analysis/v1',
+    detected_tables: ['heart_rate_record_series_table'],
+    heart_rate: { samples: 11, days: 1, elevated_episodes: [{ duration_min: 10 }] },
+    sleep: { nights: 1 },
+  }
+  const mockFiles = [
+    {
+      name: 'health_connect.db',
+      type: 'db',
+      size: 2048,
+      summary: `=== Health Connect Deep Analysis ===
+HEALTH_CONNECT_DEEP_ANALYSIS_JSON_START
+${JSON.stringify(analysis)}
+HEALTH_CONNECT_DEEP_ANALYSIS_JSON_END`
+    }
+  ]
+
+  const output = buildStructuredDataPack(mockFiles)
+
+  assert.ok(output.includes('STRUCTURED HEALTH CONNECT DEEP ANALYSIS JSON'))
+  assert.ok(output.includes('"schema": "health-connect-deep-analysis/v1"'))
+  assert.ok(output.includes('HR samples: 11'))
+})
