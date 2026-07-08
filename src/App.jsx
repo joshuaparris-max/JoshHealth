@@ -139,6 +139,8 @@ export default function App() {
     setStage(STAGES.ANALYSE)
   }, [])
 
+  const showAnalysisControls = stage === STAGES.ANALYSE || stage === STAGES.RESULT
+
   const handleCheckIn = useCallback((data) => {
     const virtualFile = {
       name: `Check-in ${data.date}`,
@@ -324,6 +326,12 @@ export default function App() {
                         </div>
                       ))}
                     </div>
+                    <button
+                      onClick={() => setStage(STAGES.ANALYSE)}
+                      className="w-full rounded-xl bg-jade px-4 py-3 text-sm font-bold text-ink transition-all hover:bg-jade-dark"
+                    >
+                      Continue to Analyse
+                    </button>
                   </div>
                 )}
               </div>
@@ -348,7 +356,7 @@ export default function App() {
               </div>
             )}
 
-            {isSupabaseConfigured && (
+            {isSupabaseConfigured && !showAnalysisControls && (
               <SupabaseDashboard 
                 summaries={supabaseSummaries} 
                 selectedDays={selectedDays}
@@ -361,7 +369,7 @@ export default function App() {
               <Dashboard />
             )}
 
-            {(stage === STAGES.ANALYSE || stage === STAGES.RESULT) && (
+            {showAnalysisControls && (
               <div className="space-y-6 animate-slide-up">
                 <ModeSelector
                   selected={selectedModes}
