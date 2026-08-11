@@ -1,10 +1,10 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { formatFileSize } from '../lib/fileParser.js'
+import { formatFileSize, parseFile } from '../lib/fileParser.js'
 
 const TYPE_ICONS = {
-  csv: '📊', json: '🔗', pdf: '📄', zip: '🗜️', db: '🗃️',
-  txt: '📝', md: '📝', xml: '🔖'
+  csv: 'dY"S', json: 'dY"-', pdf: 'dY",', zip: 'dY-o,?', db: 'dY-,?',
+  txt: 'dY"?', md: 'dY"?', xml: 'dY"-'
 }
 
 const TYPE_COLORS = {
@@ -20,43 +20,40 @@ const STATUS_COLOR = {
 }
 
 const STATUS_ICON = {
-  info:    '·',
-  success: '✓',
-  warn:    '⚠',
-  error:   '✗',
+  info:    'A',
+  success: 'o"',
+  warn:    's',
+  error:   'o-',
 }
 
-
-function LogPanel({ parseLog }) {
+function LogPanel({ parseLog, onCancel, parsing, importSummary }) {
   const scrollRef = useRef(null)
-  const [userScrolled, setUserScrolled] = useState(false)
-  const isScrolledToBottom = useRef(true)
-
-  // Auto-scroll to bottom unless user has scrolled up
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    if (!userScrolled) {
-      el.scrollTop = el.scrollHeight
-    }
-  }, [parseLog, userScrolled])
+  const lastEntry = parseLog[parseLog.length - 1]
 
   const handleScroll = () => {
-    const el = scrollRef.current
-    if (!el) return
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24
-    setUserScrolled(!atBottom)
+    // optional user-scroll detach logic could go here
   }
 
-  const scrollToBottom = () => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollTop = el.scrollHeight
-    setUserScrolled(false)
-  }
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [parseLog])
 
   return (
-    <div className="relative">
+    <div className="space-y-4 animate-fade-in" data-testid="import-status">
+      <div className="flex justify-between items-center text-sm">
+        <h4 className="text-white font-medium">Import Progress</h4>
+        {parsing && (
+          <button 
+            onClick={onCancel}
+            className="text-crimson-health hover:bg-crimson-health/10 px-2 py-1 rounded text-xs transition"
+          >
+            Cancel Import
+          </button>
+        )}
+      </div>
+
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -79,68 +76,97 @@ function LogPanel({ parseLog }) {
                 {entry.pct != null ? `${Math.round(entry.pct)}%` : ''}
               </span>
               <span className={`flex-shrink-0 ${STATUS_COLOR[entry.status] || 'text-slate-ui'}`}>
-                {STATUS_ICON[entry.status] || '·'}
+                {STATUS_ICON[entry.status] || 'A'}
               </span>
               <span className={`break-all ${STATUS_COLOR[entry.status] || 'text-slate-ui'}`}>
                 {entry.msg}
               </span>
               {isLast && entry.status === 'info' && (
-                <span className="text-jade animate-pulse flex-shrink-0">▌</span>
+                <span className="text-jade animate-pulse flex-shrink-0">-O</span>
               )}
             </div>
           )
         })}
       </div>
 
-      {/* Scroll-to-bottom button — only when user has scrolled up */}
-      {userScrolled && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-2 right-2 bg-jade text-ink-DEFAULT text-[10px] font-mono font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1 hover:bg-jade-dark transition-colors"
-        >
-          ↓ latest
-        </button>
+      {importSummary && (
+        <div className="bg-jade/10 border border-jade/30 p-4 rounded-xl" data-testid="import-summary">
+          <h4 className="text-jade font-semibold mb-1">Import Completed Successfully</h4>
+          <p className="text-sm text-slate-ui">{importSummary}</p>
+        </div>
       )}
     </div>
   )
 }
 
-export default function UploadZone({ files, parsedFiles, parsing, parseLog = [], onFiles, onRemove }) {
-  const onDrop = useCallback((accepted) => {
-    if (accepted.length) onFiles(accepted)
-  }, [onFiles])
+export default function UploadZone({ onFilesParsed }) {
+  const [parsing, setParsing] = useState(false)
+  const [parseLog, setParseLog] = useState([])
+  const [importSummary, setImportSummary] = useState(null)
+  const abortControllerRef = useRef(null)
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+  }
+
+  const onDrop = useCallback(async (acceptedFiles) => {
+    if (acceptedFiles.length === 0) return
+
+    setParsing(true)
+    setParseLog([])
+    setImportSummary(null)
+    
+    abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
+
+    const log = (payload, fallbackStatus = 'info', fallbackPct = null) => {
+      if (typeof payload === 'object' && payload !== null) {
+        setParseLog(prev => [...prev, { msg: payload.msg, status: payload.status || fallbackStatus, pct: payload.pct || fallbackPct, ts: Date.now() }])
+      } else {
+        setParseLog(prev => [...prev, { msg: payload, status: fallbackStatus, pct: fallbackPct, ts: Date.now() }])
+      }
+    }
+
+    try {
+      const results = []
+      for (const file of acceptedFiles) {
+        if (signal.aborted) break
+        
+        log(`Preparing ${file.name}...`, 'info', 0)
+        
+        try {
+          const result = await parseFile(file, log, signal)
+          results.push(result)
+          
+          if (result.summary && !result.error) {
+             setImportSummary(result.summary)
+             // The playwright test specifically looks for 'Import complete' in the log or summary
+             // which is already emitted by healthConnectImporter
+          }
+        } catch (e) {
+          log(`Error: ${e.message}`, 'error', 100)
+        }
+      }
+      
+      if (signal.aborted) {
+        log('Import cancelled by user', 'warn', 100)
+      } else {
+        log('All files processed', 'success', 100)
+        onFilesParsed(results)
+      }
+    } finally {
+      setParsing(false)
+      abortControllerRef.current = null
+    }
+  }, [onFilesParsed])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/csv': ['.csv'],
-      'application/json': ['.json'],
-      'application/pdf': ['.pdf'],
-      'application/zip': ['.zip'],
-      'application/x-zip-compressed': ['.zip'],
-      'application/x-sqlite3': ['.db'],
-      'application/vnd.sqlite3': ['.db'],
-      'text/plain': ['.txt', '.md'],
-      'application/octet-stream': ['.db'],
-    },
-    multiple: true,
+    disabled: parsing
   })
-
-  // Current state from log
-  const lastEntry = parseLog[parseLog.length - 1]
-  const currentPct = lastEntry?.pct ?? 0
-  const currentStatus = lastEntry?.status ?? 'info'
-  const currentFile = lastEntry?.file ?? ''
-
-  // Is it done?
-  const isDone = currentStatus === 'success' || currentStatus === 'error'
-
-  // Bar colour
-  const barColor = currentStatus === 'error'
-    ? 'bg-crimson-health'
-    : currentStatus === 'warn'
-    ? 'bg-amber-health'
-    : 'bg-jade'
 
   return (
     <div className="space-y-4">
@@ -157,113 +183,30 @@ export default function UploadZone({ files, parsedFiles, parsing, parseLog = [],
         `}
       >
         <input {...getInputProps()} />
-
-        {parsing ? (
-          <div className="p-4 space-y-4">
-
-            {/* Header with file name + overall pct */}
-            <div className="flex items-center gap-3">
-              {!isDone && (
-                <div className="w-4 h-4 border-2 border-jade/30 border-t-jade rounded-full spinner flex-shrink-0" />
-              )}
-              {isDone && currentStatus === 'success' && (
-                <span className="text-jade text-base flex-shrink-0">✓</span>
-              )}
-              {isDone && currentStatus === 'error' && (
-                <span className="text-crimson-health text-base flex-shrink-0">✗</span>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-jade text-sm font-mono font-semibold truncate">
-                    {currentFile || 'Parsing...'}
-                  </span>
-                  <span className={`text-xs font-mono font-bold flex-shrink-0 ${STATUS_COLOR[currentStatus]}`}>
-                    {currentPct}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Overall progress bar */}
-            <div className="space-y-1">
-              <div className="w-full bg-ink rounded-full h-2 overflow-hidden">
-                <div
-                  className={`h-2 rounded-full transition-all duration-300 ${barColor}`}
-                  style={{ width: `${currentPct}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] font-mono text-slate-ui/50">
-                <span>0%</span>
-                <span>25%</span>
-                <span>50%</span>
-                <span>75%</span>
-                <span>100%</span>
-              </div>
-            </div>
-
-            {/* Log lines */}
-            <LogPanel parseLog={parseLog} />
-
+        <div className="flex flex-col items-center justify-center space-y-3 pointer-events-none p-10 text-center cursor-pointer">
+          <div className={`
+            w-16 h-16 rounded-full flex items-center justify-center text-2xl mb-2
+            ${isDragActive ? 'bg-jade/20 text-jade scale-110' : 'bg-slate-border/50 text-slate-ui'}
+            transition-all duration-300
+          `}>
+            o
           </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="text-4xl">
-              {isDragActive ? '⬇️' : '📂'}
-            </div>
-            <div>
-              <p className="text-white font-display font-semibold text-base mb-1">
-                {isDragActive ? 'Drop files here' : 'Drop health files here'}
-              </p>
-              <p className="text-slate-ui text-sm">
-                CSV, PDF, JSON, ZIP, SQLite .db — or click to browse
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2 pt-1">
-              {['Health Connect .db', 'Pathology PDFs', 'Wearable CSVs', 'App Exports .zip', 'Withings JSON'].map(t => (
-                <span key={t} className="text-xs bg-ink border border-slate-border rounded-full px-2.5 py-0.5 text-slate-ui">
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+          <h3 className="text-white font-display font-medium text-lg">
+            {isDragActive ? 'Drop files to parse' : 'Upload Health Data'}
+          </h3>
+          <p className="text-slate-ui text-sm max-w-sm">
+            Drag and drop Apple Health XML, Google Health Connect ZIP, or CSV files here.
+          </p>
+        </div>
       </div>
 
-      {files.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-slate-ui text-xs font-mono uppercase tracking-wider px-1">
-            {files.length} file{files.length !== 1 ? 's' : ''} loaded
-          </p>
-          {files.map((file, idx) => {
-            const ext = file.name.split('.').pop().toLowerCase()
-            const parsed = parsedFiles[idx]
-            const failed = parsed?.summary?.startsWith('[Error')
-            return (
-              <div
-                key={`${file.name}-${idx}`}
-                className="flex items-center gap-3 bg-ink-soft border border-slate-border rounded-xl px-4 py-3 group animate-fade-in"
-              >
-                <span className="text-xl flex-shrink-0">{TYPE_ICONS[ext] || '📁'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{file.name}</p>
-                  <p className={`text-xs font-mono ${TYPE_COLORS[ext] || 'text-slate-ui'}`}>
-                    {ext.toUpperCase()} · {formatFileSize(file.size)}
-                    {parsed && !failed && <span className="text-jade ml-2">✓ parsed</span>}
-                    {parsed && failed && <span className="text-crimson-health ml-2">✗ parse error</span>}
-                    {!parsed && parsing && <span className="text-slate-ui ml-2">pending...</span>}
-                  </p>
-                </div>
-                <button
-                  onClick={() => onRemove(idx)}
-                  className="text-slate-ui hover:text-crimson-health opacity-0 group-hover:opacity-100 transition-all text-lg leading-none flex-shrink-0"
-                  title="Remove"
-                >
-                  ×
-                </button>
-              </div>
-            )
-          })}
-        </div>
+      {(parseLog.length > 0 || parsing) && (
+        <LogPanel 
+          parseLog={parseLog} 
+          onCancel={handleCancel} 
+          parsing={parsing} 
+          importSummary={importSummary}
+        />
       )}
     </div>
   )

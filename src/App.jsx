@@ -8,6 +8,7 @@ import Header from './components/Header.jsx'
 import DailyCheckIn from './components/DailyCheckIn.jsx'
 import SourceManager from './components/SourceManager.jsx'
 import Dashboard from './components/Dashboard.jsx'
+import HrvDashboard from './components/HrvDashboard.jsx'
 import SupabaseStatus from './components/SupabaseStatus.jsx'
 import SyncStatus from './components/SyncStatus.jsx'
 import SupabaseDashboard from './components/SupabaseDashboard.jsx'
@@ -235,8 +236,8 @@ export default function App() {
           {/* Sidebar */}
           <div className="lg:col-span-4 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-border/50 pb-2">
-              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
-                {['upload', 'sources', 'checkin', 'history', 'audit', 'settings'].map(tab => (
+              <div className="flex gap-2 p-2">
+                {['upload', 'hrv', 'sources', 'history', 'audit', 'checkin', 'settings'].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -266,6 +267,10 @@ export default function App() {
 
             {activeTab === 'audit' && (
               <DataAuditView summaries={supabaseSummaries} />
+            )}
+
+            {activeTab === 'hrv' && (
+              <HrvDashboard />
             )}
 
             {activeTab === 'checkin' && (

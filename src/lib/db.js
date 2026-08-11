@@ -3,16 +3,15 @@ import { HEALTH_SCHEMA, SOURCE_PRIORITY } from './schema.js'
 
 const db = new Dexie('HealthLensDB')
 
-// Map HEALTH_SCHEMA to Dexie stores with basic primary keys
-db.version(2).stores({
+db.version(4).stores({
   health_sources: '++id, name, type, priority',
   health_imports: '++id, source_id, file_name, file_hash, imported_at, date_range_start, date_range_end, status',
   daily_health_summary: 'date, timezone, source_confidence',
-  sleep_sessions: '++id, start_time, end_time, source_id, import_id',
-  heart_metrics: '++id, timestamp_or_date, metric_type, source_id, import_id',
-  body_measurements: '++id, timestamp_or_date, metric_type, source_id, import_id',
-  exercise_sessions: '++id, start_time, end_time, activity_type, source_id, import_id',
-  lab_results: '++id, collection_date, report_date, test_name, source_file, source_id, import_id',
+  sleep_sessions: 'source_record_id, start_time, end_time, source_id, import_id',
+  heart_metrics: 'source_record_id, timestamp_or_date, metric_type, source_id, import_id',
+  body_measurements: 'source_record_id, timestamp_or_date, metric_type, source_id, import_id',
+  exercise_sessions: 'source_record_id, start_time, end_time, activity_type, source_id, import_id',
+  lab_results: 'source_record_id, collection_date, report_date, test_name, source_file, source_id, import_id',
   daily_context_tags: 'date',
   analysis_history: '++id, date, model, modes, question'
 })
@@ -85,6 +84,6 @@ export const bulkInsertSleep = async (rows) => {
   return db.sleep_sessions.bulkAdd(rows)
 }
 
-export const bulkInsertHeart = async (rows) => {
-  return db.heart_metrics.bulkAdd(rows)
+export const bulkPutHeart = async (rows) => {
+  return db.heart_metrics.bulkPut(rows)
 }

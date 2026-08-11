@@ -1,9 +1,11 @@
-export async function parseFile(file, onProgress) {
+export async function parseFile(file, onProgress, signal = null) {
   const ext = file.name.split('.').pop().toLowerCase()
   const result = { name: file.name, type: ext, size: file.size, content: '', summary: '' }
 
-  const log = (msg, status = 'info', pct = null, id = null) =>
+  const log = (msg, status = 'info', pct = null, id = null) => {
+    if (signal?.aborted) return
     onProgress?.({ file: file.name, msg, status, pct, id })
+  }
 
   log(`Detected ${ext.toUpperCase()} - ${formatFileSize(file.size)}`, 'info', 0)
 
@@ -61,7 +63,21 @@ export async function parseFile(file, onProgress) {
         log('Processing Sleep as Android data...', 'info', 31)
         result.summary = `SLEEP AS ANDROID EXPORT\n${result.content}`
       } else if (file.name.toLowerCase().includes('health_connect') || file.name.toLowerCase().includes('health connect')) {
-        log('Processed Health Connect ZIP inventory', 'info', 96)
+        log('Processing Health Connect ZIP into IndexedDB...', 'info', 95)
+        try {
+          const stats = await importHealthConnectFile(file, (msg) => log(msg, 'info', 96), signal)
+          if (stats.status === 'skipped') {
+            log('Exact duplicate export detected. Skipping import.', 'success', 98)
+            result.summary = 'Import Skipped: Duplicate data.'
+          } else {
+            log(`Imported ${stats.hrvCount} HRV, ${stats.rhrCount} heart metrics, ${stats.sleepRowsCount} sleep rows`, 'success', 98)
+            result.summary = stats.summary || `HEALTH CONNECT DB IMPORTED: ${stats.hrvCount} HRV samples stored locally.`
+          }
+        } catch (err) {
+          log(`Health Connect import failed: ${err.message}`, 'error', 98)
+          result.summary = `HEALTH CONNECT DB IMPORT FAILED: ${err.message}`
+          result.error = err.message
+        }
       }
     } else if (ext === 'db' || ext === 'sqlite') {
       result.content = await parseSQLite(file, log)
@@ -412,7 +428,7 @@ async function parseSQLiteFallback(file, arrayBuffer, log) {
     log('Step 2/4 - Loading sql.js library...', 'info', 26)
     const SQL = (await import('sql.js')).default
 
-    const sql = await SQL({ locateFile: () => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.wasm` })
+    const sql = await SQL({ locateFile: () => `/sql-wasm.wasm` })
     log('Step 2/4 - WASM loaded', 'info', 45)
 
     log('Step 3/4 - Opening SQLite database...', 'info', 46)
@@ -461,6 +477,8 @@ IMPORTANT: Fallback parser reports schema/counts only. Worker parser gives riche
     return `[SQLite parse error for ${file.name}: ${err.message}]`
   }
 }
+
+import { importHealthConnectFile } from './healthConnectImporter.js'
 
 export function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
