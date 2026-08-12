@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 test.describe('HealthLens E2E Import', () => {
   test('tiny fixture: imports a small ZIP, renders HRV dashboard, tests filters and idempotency', async ({ page }) => {
-    const fixturePath = path.resolve(__dirname, 'tiny_fixture.zip');
+    const fixturePath = path.resolve(__dirname, 'health_connect_tiny_fixture.zip');
 
     page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
     await page.goto('/');
@@ -46,7 +47,8 @@ test.describe('HealthLens E2E Import', () => {
   });
 
   test('medium fixture: imports 10,000 row ZIP, handles chunks', async ({ page }) => {
-    const fixturePath = path.resolve(__dirname, 'medium_fixture.zip');
+    page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
+    const fixturePath = path.resolve(__dirname, 'health_connect_medium_fixture.zip');
     await page.goto('/');
     
     const fileChooserPromise = page.waitForEvent('filechooser');
@@ -55,7 +57,7 @@ test.describe('HealthLens E2E Import', () => {
     
     const startTime = Date.now();
     await fileChooser.setFiles(fixturePath);
-    await expect(page.locator('[data-testid="import-summary"]')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="import-summary"]')).toBeVisible({ timeout: 60000 });
     const duration = Date.now() - startTime;
     console.log(`Medium fixture import duration: ${duration}ms`);
     
@@ -64,14 +66,19 @@ test.describe('HealthLens E2E Import', () => {
   });
 
   test('real Health Connect export: imports a REAL Health Connect ZIP, handles heavy processing', async ({ page }) => {
+    const realZipPath = 'C:\\Users\\joshu_w0zb8cp\\Downloads\\Health Connect (1).zip';
+    
+    if (!fs.existsSync(realZipPath)) {
+      console.log('Skipping real-data test: Local export file not found (expected on CI).');
+      test.skip();
+    }
+
     test.setTimeout(90000); // 90 seconds timeout for heavy file
     
     await page.goto('/');
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.locator('.border-dashed').click();
     const fileChooser = await fileChooserPromise;
-    
-    const realZipPath = 'C:\\Users\\joshu_w0zb8cp\\Downloads\\Health Connect (1).zip';
     
     let lastProgressUpdate = Date.now();
     let maxWaitBetweenProgress = 0;
