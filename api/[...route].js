@@ -10,8 +10,10 @@ import stravaStatus from '../src/apiHandlers/strava-status.js'
 import stravaWebhook from '../src/apiHandlers/strava-webhook.js'
 import withingsCallback from '../src/apiHandlers/withings-callback.js'
 import withingsStart from '../src/apiHandlers/withings-start.js'
+import aiChat from '../src/apiHandlers/ai-chat.js'
 
 const routeMap = new Map([
+  ['ai/chat', aiChat],
   ['admin/self-test', adminSelfTest],
   ['fitbit/start', fitbitStart],
   ['fitbit/callback', fitbitCallback],

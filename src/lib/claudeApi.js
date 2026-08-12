@@ -11,28 +11,16 @@ const ENDPOINTS = {
 
 export async function checkHealth({ apiKey, provider, model }) {
   try {
-    const endpoint = ENDPOINTS[provider]
-    if (!endpoint) throw new Error(`Unsupported provider: ${provider}`)
-    
-    const isAnthropic = provider === 'anthropic'
-    const body = isAnthropic ? {
-      model: model || 'claude-3-5-sonnet-20240620',
-      max_tokens: 1,
-      messages: [{ role: 'user', content: 'hi' }]
-    } : {
-      model: model || (provider === 'groq' ? 'llama-3.1-70b-versatile' : 'anthropic/claude-3.5-sonnet'),
-      messages: [{ role: 'user', content: 'hi' }],
-      max_tokens: 1
-    }
-
-    const response = await fetch(endpoint, {
+    const response = await fetch('/api/ai/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        ...(isAnthropic ? { 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } : {})
-      },
-      body: JSON.stringify(body)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        providerId: provider,
+        model,
+        apiKey,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 1
+      })
     })
 
     if (response.ok) {
@@ -42,17 +30,19 @@ export async function checkHealth({ apiKey, provider, model }) {
     let errorBody = { error: { message: response.statusText } }
     try {
       errorBody = await response.json()
-    } catch (parseError) {
-      // ignore parse error
-    }
+    } catch (parseError) {}
 
     return {
       ok: false,
-      message: errorBody.error?.message || errorBody.message || `API request failed with status ${response.status}`
+      message: errorBody.error?.message || errorBody.message || errorBody.details || `API request failed with status ${response.status}`
     }
   } catch (e) {
     return { ok: false, message: e.message || 'Network error' }
   }
+}
+
+const FALLBACK_CHAIN = {
+  'llama-3.3-70b-versatile': ['llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant']
 }
 
 export const ANALYSIS_MODES = {
@@ -108,76 +98,122 @@ export const ANALYSIS_MODES = {
   }
 }
 
-async function streamResponse({ apiKey, provider, model, systemPrompt, messages, onChunk }) {
-  const endpoint = ENDPOINTS[provider]
-  if (!endpoint) throw new Error(`Unsupported provider: ${provider}`)
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
-  const isAnthropic = provider === 'anthropic'
+async function streamResponse({ apiKey, provider, model, systemPrompt, messages, maxTokens = 1500, onChunk }) {
+  let attempt = 0;
+  let currentModel = model;
+  const isAnthropic = provider === 'anthropic';
   
-  const body = isAnthropic ? {
-    model: model || 'claude-3-5-sonnet-20240620',
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: messages,
-    stream: true
-  } : {
-    model: model || (provider === 'groq' ? 'llama-3.1-70b-versatile' : 'anthropic/claude-3.5-sonnet'),
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...messages
-    ],
-    stream: true
-  }
+  // Create model fallback chain if starting with the default Groq model
+  const modelsToTry = (provider === 'groq' && FALLBACK_CHAIN[model]) 
+    ? [...FALLBACK_CHAIN[model]] 
+    : [model];
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://healthlens.app', 'X-Title': 'HealthLens' } : {}),
-      ...(isAnthropic ? { 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } : {})
-    },
-    body: JSON.stringify(body)
-  })
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: { message: response.statusText } }))
-    throw new Error(err.error?.message || err.error || 'API request failed')
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let fullText = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    const chunk = decoder.decode(value)
-    const lines = chunk.split('\n').filter(l => l.trim() !== '')
-
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        const data = line.slice(6)
-        if (data === '[DONE]') continue
-        try {
-          const json = JSON.parse(data)
-          const content = isAnthropic 
-            ? json.delta?.text || '' 
-            : json.choices?.[0]?.delta?.content || ''
-          
-          if (content) {
-            fullText += content
-            onChunk(fullText)
-          }
-        } catch (e) {
-          // Ignore parse errors for incomplete chunks
-        }
+  while (modelsToTry.length > 0) {
+    currentModel = modelsToTry.shift();
+    let retryCount = 0;
+    const maxRetries = 2; // For 429s on the SAME model
+    
+    while (retryCount <= maxRetries) {
+      if (attempt > 0) {
+        onChunk(`\n\n_Retrying with model ${currentModel}..._\n\n`);
       }
-    }
-  }
 
-  return fullText
+      const body = {
+        providerId: provider,
+        model: currentModel,
+        apiKey,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages
+        ],
+        max_tokens: maxTokens
+      }
+
+      try {
+        const response = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+
+        if (!response.ok) {
+          if (response.status === 429) {
+            const errData = await response.json().catch(() => ({}));
+            let retryAfterHeader = errData.retryAfter || response.headers.get('retry-after');
+            let waitSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : (2 ** retryCount);
+            if (isNaN(waitSeconds)) waitSeconds = 5;
+            
+            // Add jitter (0 to 1000ms)
+            const jitterMs = Math.floor(Math.random() * 1000);
+            const totalWaitMs = (waitSeconds * 1000) + jitterMs;
+
+            if (retryCount < maxRetries && totalWaitMs < 30000) { // Don't wait more than 30s for a single model
+              onChunk(`\n\n_Provider is briefly busy (Rate Limited). Retrying automatically in ${Math.ceil(totalWaitMs/1000)} seconds..._\n\n`);
+              await sleep(totalWaitMs);
+              retryCount++;
+              attempt++;
+              continue; // Retry same model
+            } else {
+              // Exceeded retries or wait time for this model, break out to try next model
+              if (modelsToTry.length > 0) {
+                onChunk(`\n\n_${currentModel} is temporarily busy. Continuing with next available model..._\n\n`);
+              }
+              break; 
+            }
+          }
+          
+          // Non-429 error, don't retry same model
+          const err = await response.json().catch(() => ({ error: { message: response.statusText } }))
+          throw new Error(err.error?.message || err.error || err.details || 'API request failed')
+        }
+
+        // Success!
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let fullText = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n').filter(l => l.trim() !== '')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              if (data === '[DONE]') continue
+              try {
+                const json = JSON.parse(data)
+                const content = isAnthropic 
+                  ? json.delta?.text || '' 
+                  : json.choices?.[0]?.delta?.content || ''
+                
+                if (content) {
+                  fullText += content
+                  onChunk(fullText)
+                }
+              } catch (e) {
+                // Ignore parse errors for incomplete chunks
+              }
+            }
+          }
+        }
+        return fullText;
+      } catch (err) {
+        // Log the error but don't rethrow it yet, so we continue to the next model
+        console.warn(`Model ${currentModel} failed:`, err.message);
+        break;
+      }
+    } // End inner retry loop
+    attempt++;
+  } // End outer model loop
+  
+  throw new Error('AI analysis is temporarily unavailable. Your imported health data is safe and has not been lost. Try again shortly.');
 }
 
 export async function runAnalysis({ apiKey, provider = 'anthropic', model = 'claude-opus-4-5', parsedFiles, selectedModes, customQuestion, onChunk, onComplete, onError }) {
@@ -249,6 +285,7 @@ Begin your structured analysis now. Lead with the Data Inventory.`
       model,
       systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
+      maxTokens: 2500,
       onChunk
     })
     onComplete(fullText)

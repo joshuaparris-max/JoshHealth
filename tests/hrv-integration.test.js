@@ -13,12 +13,34 @@ test('Integration: Import ZIP into IndexedDB', async (t) => {
   await db.sleep_sessions.clear()
   await db.health_sources.clear()
 
-  const zipPath = 'C:/Users/joshu_w0zb8cp/Downloads/Health Connect (1).zip'
-  const buffer = await fs.readFile(zipPath)
+  // Generate Synthetic Test Fixture
+  const JSZip = (await import('jszip')).default
+  const initSqlJs = (await import('sql.js')).default
   
+  const sql = await initSqlJs()
+  const dbSql = new sql.Database()
+  
+  dbSql.run(`CREATE TABLE heart_rate_variability_rmssd_record_table (
+    uuid BLOB, time INTEGER, heart_rate_variability_millis REAL, client_record_id TEXT
+  )`)
+  dbSql.run(`CREATE TABLE resting_heart_rate_record_table (
+    uuid BLOB, time INTEGER, beats_per_minute INTEGER, client_record_id TEXT
+  )`)
+  
+  // Insert synthetic data
+  dbSql.run(`INSERT INTO heart_rate_variability_rmssd_record_table VALUES (?, ?, ?, ?)`, [new Uint8Array(16), Date.now(), 45.2, 'test-hrv'])
+  dbSql.run(`INSERT INTO resting_heart_rate_record_table VALUES (?, ?, ?, ?)`, [new Uint8Array(16), Date.now(), 60, 'test-rhr'])
+  
+  const dbData = dbSql.export()
+  dbSql.close()
+
+  const zip = new JSZip()
+  zip.file('health_connect.db', dbData)
+  const buffer = await zip.generateAsync({ type: 'uint8array' })
+
   // Mock File API
   const file = {
-    name: 'Health Connect (1).zip',
+    name: 'Synthetic_Health_Connect.zip',
     arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   }
 
